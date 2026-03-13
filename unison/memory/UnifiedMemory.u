@@ -1,0 +1,38 @@
+unique type MemoryGraphDB = {
+  nodes : Map Text GraphNode,
+  edges : [GraphEdge]
+}
+
+unique type UnifiedMemory = {
+  kg : KnowledgeGraph,
+  narsMemory : NarsMemory,
+  items : Map Text MemoryItem,
+  facts : [MemoryFact],
+  graph : MemoryGraphDB,
+  layers : Map Text [Text]
+}
+
+-- Placeholder operations
+UnifiedMemory.search : Text -> UnifiedMemory -> [MemoryItem]
+UnifiedMemory.search query um = []
+
+UnifiedMemory.searchFacts : Text -> UnifiedMemory -> [MemoryFact]
+UnifiedMemory.searchFacts query um = []
+
+UnifiedMemory.getRelated : Text -> UnifiedMemory -> [GraphNode]
+UnifiedMemory.getRelated entity um = []
+
+UnifiedMemory.addMemory : MemoryItem -> UnifiedMemory -> UnifiedMemory
+UnifiedMemory.addMemory item um = um
+
+UnifiedMemory.extractFacts : MemoryItem -> UnifiedMemory -> UnifiedMemory
+UnifiedMemory.extractFacts item um = um
+
+UnifiedMemory.narsInfer : Text -> UnifiedMemory -> [MemoryFact]
+UnifiedMemory.narsInfer goal um = []
+
+UnifiedMemory.axiomaticProve : Text -> UnifiedMemory -> Optional Theorem
+UnifiedMemory.axiomaticProve goal um = None
+
+UnifiedMemory.graphStats : UnifiedMemory -> Map Text Nat
+UnifiedMemory.graphStats um = Map.empty

@@ -22,15 +22,24 @@ This project is divided into several phases to keep context manageable. Each pha
 - [x] Add `openclaw-graphiti-memory` and `openclaw-memory-offline-sqlite` as reference read-only submodules.
 - **AI Instruction**: Update checklist when done.
 
+### Phase 1.5: Unified API Design *(must precede Phase 2)*
+Design the simplified API that LLM/OpenClaw will use to access all knowledge and reasoning. See `docs/steps/step1.5-api-design.md`.
+- [x] Define 7 core operations: `remember`, `recall`, `assert`, `retract`, `query`, `infer`, `explain`
+- [x] Design context/microtheory system (from CycL)
+- [x] Define wire format for LLM tool calls
+- [x] Document ADT constraints (context, provenance, toAtom) that Step 2 must follow
+- **AI Instruction**: This step is PLANNING ONLY — it shapes Step 2 before any Unison code is written.
+
 ### Phase 2: Unison Type System (ADTs)
-Design the Unison ADTs spanning 5 layers (see `docs/architecture.md` for details):
-- [ ] Core Atomspace (MeTTa-style Atom, AtomSpace metagraph)
-- [ ] KG types (Entity, Relation, Fact, KnowledgeGraph)
-- [ ] Axiomatic reasoning (Proposition, Axiom, Theorem, Proof, InferenceRule)
-- [ ] NARS ADTs (NarsTerm, TruthValue, Concept, Task, Bag, NarsMemory)
-- [ ] Unified Memory types bridging Graphiti & SQLite (MemoryItem, MemoryFact, GraphNode, GraphEdge, MemoryGroup, Layers)
-- [ ] API stubs for query, inference, and memory operations
-- **AI Instruction**: Check types compilation with `ucm transcript`.
+Design the Unison ADTs spanning 5 layers (see `docs/architecture.md` and `docs/steps/step2-unison-types.md`).
+**All types must satisfy the API constraints from Phase 1.5** (context field, provenance, toAtom conversion).
+- [x] Core Atomspace (MeTTa-style Atom, AtomSpace metagraph)
+- [x] KG types (Entity, Relation, Fact, KnowledgeGraph)
+- [x] Axiomatic reasoning (Proposition, Axiom, Theorem, Proof, InferenceRule)
+- [x] NARS ADTs (NarsTerm, TruthValue, Concept, Task, Bag, NarsMemory)
+- [x] Unified Memory types bridging Graphiti & SQLite (MemoryItem, MemoryFact, GraphNode, GraphEdge, MemoryGroup, Layers)
+- [x] API module (`unison/api/`) implementing the 7 core operations over the ADTs
+- **AI Instruction**: Check types compilation with `ucm transcript`. Every type must include `context` and `provenance`.
 
 ### Phase 3: Python KG Parsers
 - [ ] `parse_nell.py`: NELL → Unison parser (TSV beliefs/ontology → Entity/Fact)
@@ -48,6 +57,7 @@ Design the Unison ADTs spanning 5 layers (see `docs/architecture.md` for details
 - [ ] A Unison API wrapper for AI to dynamically edit facts and rules.
 - [ ] NLP layer (small LLM for NLU/NLG).
 - [ ] Inference rules engine full implementation.
+- [ ] Logic verification & proof checking (Lean4 bridge or native Unison solutions).
 
 ## Tooling
 - **Nix / Devenv**: Used for deterministic package management (Unison, Python).

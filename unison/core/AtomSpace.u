@@ -1,0 +1,39 @@
+use core.Atom Atom
+use core.Common Context Provenance
+
+unique type EdgeMeta = {
+  confidence : Float,
+  source : Text,
+  timestamp : Nat,
+  priority : Float,
+  context : Context
+}
+
+unique type Edge = {
+  source : Text, -- using Text instead of Hash for simplicity before UCM integration
+  label : Atom,
+  target : Text,
+  metadata : EdgeMeta
+}
+
+unique type AtomSpace = {
+  atoms : Map Text Atom,
+  edges : [Edge],
+  index : Map Text [Text]
+}
+
+AtomSpace.empty : AtomSpace
+AtomSpace.empty = AtomSpace Map.empty [] Map.empty
+
+-- Placeholders for core operations
+AtomSpace.addAtom : Atom -> AtomSpace -> AtomSpace
+AtomSpace.addAtom a space = space
+
+AtomSpace.addEdge : Edge -> AtomSpace -> AtomSpace
+AtomSpace.addEdge e space = space
+
+AtomSpace.query : Atom -> AtomSpace -> [Atom]
+AtomSpace.query pattern space = []
+
+AtomSpace.rewrite : Atom -> Atom -> AtomSpace -> AtomSpace
+AtomSpace.rewrite fromPattern toPattern space = space

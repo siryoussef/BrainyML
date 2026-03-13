@@ -1,0 +1,15 @@
+unique type Term
+  = TVar Text
+  | TConst Text
+  | TFunc Text [Term]
+
+unique type Proposition
+  = PAtom Text
+  | PNot Proposition
+  | PAnd Proposition Proposition
+  | POr Proposition Proposition
+  | PImplies Proposition Proposition
+  | PIff Proposition Proposition
+  | PForAll Text Proposition
+  | PExists Text Proposition
+  | PPredicate Text [Term]

@@ -1,0 +1,43 @@
+use reasoning.axiomatic.Logic Proposition Term
+
+unique type Axiom = {
+  name : Text,
+  proposition : Proposition,
+  justification : Text
+}
+
+unique type Theorem = {
+  name : Text,
+  proposition : Proposition,
+  proof : Proof
+}
+
+unique type Proof
+  = Axiomatic Axiom
+  | ModusPonens Theorem Theorem
+  | Resolution [Theorem]
+  | Induction Term Proof Proof
+  | Custom Text [Theorem]
+
+unique type InferenceRule
+  = ModusPonensRule
+  | ModusTollensRule
+  | HypotheticalSyllogism
+  | DisjunctiveSyllogism
+  | ResolutionRule
+  | UniversalInstantiation
+  | ExistentialGeneralization
+  | CustomRule Text (Proposition -> Proposition -> Optional Proposition)
+
+-- Placeholder functions
+applyRule : InferenceRule -> Proposition -> Proposition -> Optional Proposition
+applyRule rule p1 p2 = None
+
+forwardChain : [Axiom] -> [InferenceRule] -> [Theorem]
+forwardChain axioms rules = []
+
+backwardChain : Proposition -> [Axiom] -> [InferenceRule] -> Optional Theorem
+backwardChain goal axioms rules = None
+
+checkConsistency : [Axiom] -> Boolean
+checkConsistency axioms = true

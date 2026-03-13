@@ -1,0 +1,23 @@
+use core.Atom Atom
+use core.Common Context Provenance
+
+unique type KGSource
+  = NELL
+  | CSKG
+  | Graphiti
+  | UserDefined
+  | Inferred
+
+unique type Entity = {
+  id : Text,
+  name : Text,
+  category : Text,
+  aliases : [Text],
+  source : KGSource,
+  properties : Map Text Atom,
+  context : Context,
+  provenance : Provenance
+}
+
+Entity.toAtom : Entity -> Atom
+Entity.toAtom e = SymbolAtom (Entity.id e)

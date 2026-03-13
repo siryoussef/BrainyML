@@ -1,0 +1,29 @@
+use core.AtomSpace AtomSpace
+use kg.Entity Entity
+use kg.Relation Relation
+use kg.Fact Fact
+
+unique type KnowledgeGraph = {
+  space : AtomSpace,
+  entities : Map Text Entity,
+  relations : Map Text Relation,
+  facts : [Fact]
+}
+
+KnowledgeGraph.findEntity : Text -> KnowledgeGraph -> Optional Entity
+KnowledgeGraph.findEntity id kg = Map.get id (KnowledgeGraph.entities kg)
+
+KnowledgeGraph.findFacts : Entity -> KnowledgeGraph -> [Fact]
+KnowledgeGraph.findFacts e kg = [] -- Placeholder
+
+KnowledgeGraph.addFact : Fact -> KnowledgeGraph -> KnowledgeGraph
+KnowledgeGraph.addFact f kg = kg -- Placeholder
+
+KnowledgeGraph.relatedEntities : Entity -> KnowledgeGraph -> [Entity]
+KnowledgeGraph.relatedEntities e kg = [] -- Placeholder
+
+KnowledgeGraph.graphStats : KnowledgeGraph -> Map Text Nat
+KnowledgeGraph.graphStats kg = Map.empty -- Placeholder
+
+KnowledgeGraph.traversePath : Entity -> Entity -> Nat -> KnowledgeGraph -> [[Entity]]
+KnowledgeGraph.traversePath src dst maxDepth kg = [] -- Placeholder

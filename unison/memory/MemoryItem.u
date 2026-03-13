@@ -1,0 +1,16 @@
+unique type MemoryItem = {
+  id : Text,
+  text : Text,
+  entityId : Text,
+  processId : Text,
+  sessionId : Text,
+  timestamp : Nat,
+  embedding : Optional [Float],
+  metadata : Map Text Text,
+  context : Context,
+  provenance : Provenance
+}
+
+MemoryItem.toAtom : MemoryItem -> Atom
+MemoryItem.toAtom item =
+  ExpressionAtom [SymbolAtom "memory", SymbolAtom (MemoryItem.id item), GroundedAtom (GText (MemoryItem.text item))]

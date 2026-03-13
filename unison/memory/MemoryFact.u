@@ -1,0 +1,25 @@
+unique type ExtractionMethod
+  = SimpleExtraction
+  | NarsInferred
+  | AxiomaticProof
+  | ManualEntry
+
+unique type MemoryFact = {
+  id : Text,
+  subject : Text,
+  predicate : Text,
+  object : Text,
+  sourceMemory : Text,
+  confidence : Float,
+  extractionMethod : ExtractionMethod,
+  context : Context,
+  provenance : Provenance
+}
+
+MemoryFact.toAtom : MemoryFact -> Atom
+MemoryFact.toAtom mf =
+  ExpressionAtom [
+    SymbolAtom (MemoryFact.predicate mf),
+    SymbolAtom (MemoryFact.subject mf),
+    SymbolAtom (MemoryFact.object mf)
+  ]

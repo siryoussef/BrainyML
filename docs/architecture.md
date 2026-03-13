@@ -1,5 +1,8 @@
 # BrainyML Architecture
 
+## Design Principle
+All internal complexity (NARS, axiomatic logic, MeTTa rewriting, CycL-style microtheories, KG standards) converges into a **single unified API** of 7 operations (`remember`, `recall`, `assert`, `retract`, `query`, `infer`, `explain`). An LLM/OpenClaw agent interacts ONLY through this API — never touching internal types directly. See `docs/steps/step1.5-api-design.md`.
+
 ## Component Overview
 
 ### 1. Unified Unison Type System (ADTs)

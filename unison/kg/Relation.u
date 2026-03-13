@@ -1,0 +1,15 @@
+use core.Atom Atom
+use core.Common Context Provenance
+
+unique type Relation = {
+  id : Text,
+  name : Text,
+  domain : Text,
+  range : Text,
+  symmetric : Boolean,
+  context : Context,
+  provenance : Provenance
+}
+
+Relation.toAtom : Relation -> Atom
+Relation.toAtom r = SymbolAtom (Relation.id r)

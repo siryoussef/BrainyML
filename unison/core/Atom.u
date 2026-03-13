@@ -1,0 +1,28 @@
+use core.Common Context Provenance
+
+unique type GroundedValue
+  = GText Text
+  | GFloat Float
+  | GInt Int
+  | GBool Boolean
+  | GBlob Bytes
+  | GUnisonHash Bytes -- Using Bytes since Hash isn't a built-in literal in standard ucm without base/crypto
+
+unique type Atom
+  = SymbolAtom Text
+  | VariableAtom Text
+  | ExpressionAtom [Atom]
+  | GroundedAtom GroundedValue
+  | FloatAtom Float
+  | IntAtom Int
+  | BoolAtom Boolean
+
+-- Helper to extract ID (just a placeholder for now until hash logic is implemented)
+Atom.id : Atom -> Text
+Atom.id = cases
+  SymbolAtom t -> t
+  VariableAtom t -> "?" ++ t
+  _ -> "hash_placeholder"
+
+Atom.match : Atom -> Atom -> Optional [(Text, Atom)]
+Atom.match a1 a2 = None -- Placeholder implementation

@@ -1,0 +1,60 @@
+unique type Stamp = {
+  evidenceBase : [Nat],
+  creationTime : Nat,
+  occurrenceTime : Optional Nat
+}
+
+unique type Punctuation = Judgement | Question | Goal | Quest
+
+unique type Sentence = {
+  term : NarsTerm,
+  truth : TruthValue,
+  stamp : Stamp,
+  punctuation : Punctuation
+}
+
+unique type LinkType
+  = Self
+  | Component
+  | Compound
+  | ComponentStatement
+  | CompoundStatement
+
+unique type TermLink = {
+  target : NarsTerm,
+  linkType : LinkType,
+  priority : Float
+}
+
+unique type Task = {
+  sentence : Sentence,
+  priority : Float,
+  parentTask : Optional Task
+}
+
+unique type TaskLink = {
+  target : Task,
+  linkType : LinkType,
+  priority : Float
+}
+
+unique type Bag a = {
+  items : Map Text (a, Float),
+  capacity : Nat
+}
+
+-- Probabilistic selection from a Bag (placeholder)
+Bag.probabilisticSelect : Bag a -> Optional a
+Bag.probabilisticSelect bag = None
+
+unique type Concept = {
+  term : NarsTerm,
+  beliefs : Bag Sentence,
+  goals : Bag Sentence,
+  questions : [Sentence],
+  termLinks : [TermLink],
+  taskLinks : [TaskLink],
+  priority : Float,
+  durability : Float,
+  quality : Float
+}

@@ -1,0 +1,17 @@
+unique type SetType = ExtensionalSet | IntensionalSet
+unique type ImageType = ExtImage | IntImage
+unique type TemporalOrder = Before | After | Concurrent
+
+unique type NarsTerm
+  = NAtom Text
+  | NSet SetType [NarsTerm]
+  | NInheritance NarsTerm NarsTerm
+  | NSimilarity NarsTerm NarsTerm
+  | NImplication NarsTerm NarsTerm
+  | NEquivalence NarsTerm NarsTerm
+  | NConjunction [NarsTerm]
+  | NDisjunction [NarsTerm]
+  | NNegation NarsTerm
+  | NImage ImageType NarsTerm [NarsTerm] Nat
+  | NProduct [NarsTerm]
+  | NTemporalImpl TemporalOrder NarsTerm NarsTerm

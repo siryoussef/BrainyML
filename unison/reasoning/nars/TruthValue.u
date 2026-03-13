@@ -1,0 +1,17 @@
+unique type TruthValue = { frequency : Float, confidence : Float }
+
+-- NARS Truth functions (placeholders)
+revision : TruthValue -> TruthValue -> TruthValue
+revision v1 v2 = v1
+
+deduction : TruthValue -> TruthValue -> TruthValue
+deduction v1 v2 = v1
+
+abduction : TruthValue -> TruthValue -> TruthValue
+abduction v1 v2 = v1
+
+induction : TruthValue -> TruthValue -> TruthValue
+induction v1 v2 = v1
+
+expectation : TruthValue -> Float
+expectation v = 0.5

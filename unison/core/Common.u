@@ -1,0 +1,14 @@
+unique type Context
+  = CommonSense
+  | Agent Text
+  | User Text
+  | System
+  | Session Text
+  | Domain Text
+
+unique type Provenance = {
+  source : Text,
+  timestamp : Nat,
+  confidence : Float,
+  derivation : Optional Text
+}

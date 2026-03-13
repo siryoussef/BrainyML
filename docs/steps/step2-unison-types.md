@@ -1,6 +1,11 @@
 # Step 2: Unison Type System (ADTs)
 
-**Status:** ⬜ Not started
+**Status:** ✅ Complete  
+**Prerequisite:** `step1.5-api-design.md` must be completed first. All types below must satisfy:
+1. Include a `context : Context` field (or accept Context in operations)
+2. Produce a `Provenance` record
+3. Provide `toAtom : X -> Atom` for API interoperability
+4. Support the 7 core API operations (remember, recall, assert, retract, query, infer, explain)
 
 ## Overview
 Design and implement the Unison type hierarchy across 5 sub-layers. All files go under `unison/`.

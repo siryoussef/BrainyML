@@ -1,0 +1,37 @@
+unique type NarsRule
+  = Deduction
+  | Abduction
+  | Induction
+  | Exemplification
+  | Comparison
+  | Analogy
+  | Resemblance
+  | Revision
+  | Intersection
+  | Union
+  | Difference
+  | TemporalDeduction
+  | TemporalInduction
+  | Decomposition
+  | Contraposition
+  | CustomNarsRule Text (Sentence -> Sentence -> Optional Sentence)
+
+-- Placeholder inference functions
+NarsRule.apply : NarsRule -> Sentence -> Sentence -> Optional Sentence
+NarsRule.apply rule s1 s2 = None
+
+forwardInfer : NarsRule -> Sentence -> Sentence -> Optional Sentence
+forwardInfer rule s1 s2 = None
+
+backwardInfer : NarsRule -> Sentence -> Sentence -> Optional Sentence
+backwardInfer rule s1 s2 = None
+
+unique type NarsMemory = {
+  concepts : Bag Concept,
+  inputBuffer : Bag Task,
+  cycleCount : Nat
+}
+
+-- One NARS inference cycle (placeholder)
+NarsMemory.cycle : NarsMemory -> NarsMemory
+NarsMemory.cycle mem = mem

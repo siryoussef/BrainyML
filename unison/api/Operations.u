@@ -1,0 +1,50 @@
+-- BrainyML Unified API
+-- 7 core operations: remember, recall, assert, retract, query, infer, explain
+-- These wrap internal ADTs behind a simple tool-style interface.
+
+unique type ApiResult
+  = MemoryResults [MemoryItem]
+  | FactResults [MemoryFact]
+  | GraphResults [GraphNode]
+  | InferenceResults [MemoryFact]
+  | ExplanationResult Text
+  | StatsResult (Map Text Nat)
+  | Success Text
+  | Error Text
+
+unique type InferenceStrategy = AutoStrategy | NarsStrategy | AxiomaticStrategy
+
+-- remember: Store text with attribution
+remember : Text -> Context -> Provenance -> UnifiedMemory -> UnifiedMemory
+remember text ctx prov um =
+  let item = MemoryItem "auto" text "" "" "" 0 None Map.empty ctx prov
+  UnifiedMemory.addMemory item um
+
+-- recall: Search memories by query
+recall : Text -> Context -> Nat -> UnifiedMemory -> [MemoryItem]
+recall query ctx limit um = UnifiedMemory.search query um
+
+-- assert: Assert a structured fact
+assertFact : Text -> Text -> Text -> Context -> Float -> UnifiedMemory -> UnifiedMemory
+assertFact subject predicate object ctx confidence um = um -- Placeholder
+
+-- retract: Retract a fact by ID (with truth maintenance)
+retract : Text -> UnifiedMemory -> UnifiedMemory
+retract factId um = um -- Placeholder
+
+-- query: Pattern-match against the knowledge graph
+queryKG : Atom -> Context -> UnifiedMemory -> [Atom]
+queryKG pattern ctx um = AtomSpace.query pattern (KnowledgeGraph.space (UnifiedMemory.kg um))
+
+-- infer: Trigger inference (auto/nars/axiomatic)
+infer : Text -> InferenceStrategy -> UnifiedMemory -> ApiResult
+infer goal strategy um = match strategy with
+  NarsStrategy -> InferenceResults (UnifiedMemory.narsInfer goal um)
+  AxiomaticStrategy -> match UnifiedMemory.axiomaticProve goal um with
+    Some _ -> Success "Proved"
+    None -> Error "No proof found"
+  AutoStrategy -> InferenceResults (UnifiedMemory.narsInfer goal um)
+
+-- explain: Full derivation chain for a result
+explain : Text -> UnifiedMemory -> ApiResult
+explain derivationId um = ExplanationResult "Derivation chain placeholder"

@@ -1,0 +1,25 @@
+use kg.Entity Entity KGSource
+use kg.Relation Relation
+use core.Atom Atom ExpressionAtom
+use core.Common Context Provenance
+
+-- Placeholders until we define NARS TruthValue
+unique type TruthValuePlaceholder = { frequency : Float, confidence : Float }
+
+unique type Fact = {
+  subject : Entity,
+  relation : Relation,
+  object : Entity,
+  truthValue : TruthValuePlaceholder,
+  source : KGSource,
+  evidence : [Text],
+  context : Context,
+  provenance : Provenance
+}
+
+Fact.toAtom : Fact -> Atom
+Fact.toAtom f =
+  subj = Entity.toAtom (Fact.subject f)
+  rel = Relation.toAtom (Fact.relation f)
+  obj = Entity.toAtom (Fact.object f)
+  ExpressionAtom [rel, subj, obj]

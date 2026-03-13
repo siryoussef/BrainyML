@@ -1,0 +1,40 @@
+unique type MemoryGroup
+  = PrivateAgent Text
+  | SharedUser
+  | SharedSystem
+  | KnowledgeBase KGSource
+
+unique type MemoryLayer
+  = PrivateFiles
+  | SharedFiles
+  | SharedKnowledgeGraph
+  | FactsStore
+  | EmbeddingsStore
+
+unique type TemporalInfo = {
+  validFrom : Nat,
+  validUntil : Optional Nat,
+  episodic : Boolean
+}
+
+unique type GraphNode = {
+  id : Text,
+  nodeType : Text,
+  label : Text,
+  group : MemoryGroup,
+  properties : Map Text Text,
+  context : Context,
+  provenance : Provenance
+}
+
+unique type GraphEdge = {
+  source : Text,
+  target : Text,
+  label : Text,
+  weight : Float,
+  temporal : Optional TemporalInfo,
+  context : Context
+}
+
+GraphNode.toAtom : GraphNode -> Atom
+GraphNode.toAtom node = SymbolAtom (GraphNode.id node)
