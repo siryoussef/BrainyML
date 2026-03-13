@@ -1,0 +1,9 @@
+[submodule "submodules/CSKG"]
+	path = submodules/CSKG
+	url = https://github.com/usc-isi-i2/cskg.git
+[submodule "submodules/openclaw-graphiti-memory"]
+	path = submodules/openclaw-graphiti-memory
+	url = https://github.com/clawdbrunner/openclaw-graphiti-memory.git
+[submodule "submodules/openclaw-memory-offline-sqlite"]
+	path = submodules/openclaw-memory-offline-sqlite
+	url = https://github.com/AkashaBot/openclaw-memory-offline-sqlite.git
