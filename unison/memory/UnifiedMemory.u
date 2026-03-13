@@ -1,5 +1,30 @@
 namespace memory
 
+-- =============================================================================
+-- UnifiedMemory.u — Unified memory layer combining all knowledge sources
+-- =============================================================================
+-- UnifiedMemory is the central hub that integrates:
+-- - KnowledgeGraph: Structured facts (subject-predicate-object triples)
+-- - NarsMemory: Non-axiomatic reasoning engine (uncertain inference)
+-- - MemoryItem: Raw text memories from OpenClaw conversations
+-- - MemoryFact: Extracted facts from text (naive S-P-O triples)
+-- - MemoryGraph: Graphiti-style layered memory (private/shared/KB)
+-- - EpisodicMemory: Time-stamped experiences with salience
+-- - RuleSet: Executable inference rules (content-addressed by hash)
+--
+-- This file implements Feature 7 (wiring) and Feature 10 (self-modification):
+-- - addMemory: Store text, extract facts, update all subsystems
+-- - search: Text search via inverted index (stubbed)
+-- - narsInfer: Run NARS cycle, collect high-confidence conclusions
+-- - axiomaticProve: Delegate to backwardChain (axiomatic logic)
+-- - extractFacts: Naive triple extraction (first/second/rest words)
+-- - learn: Add facts with TruthValue revision
+-- - learnRule: Promote new rules to active set
+-- - rollback: Restore to previous state via history replay
+--
+-- Key design: All subsystems updated atomically — either all succeed or none.
+-- =============================================================================
+
 -- FEATURE 7 + 10: UnifiedMemory — wired implementations with RuleSet and Episodes
 
 use core Context Provenance

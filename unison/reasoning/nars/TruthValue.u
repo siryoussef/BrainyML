@@ -1,5 +1,33 @@
 namespace reasoning.nars
 
+-- =============================================================================
+-- TruthValue.u — NARS uncertainty representation and inference formulas
+-- =============================================================================
+-- In NARS (Non-Axiomatic Reasoning System), truth is represented by two values:
+-- - frequency (f): How often the statement has been observed true (0.0-1.0)
+-- - confidence (c): How much evidence we have (0.0-1.0, based on sample size)
+--
+-- This differs from probability: P(A) = f, but confidence tells us how reliable
+-- that probability estimate is. A statement with f=0.5, c=0.9 is more useful
+-- than f=0.5, c=0.1.
+--
+-- This file implements the 5 core NAL (Non-Axiomatic Logic) formulas:
+-- - revision: Merge two independent observations of the same statement
+-- - deduction: A→B, B→C ⊢ A→C (syllogism)
+-- - abduction: A→B, A→C ⊢ C→B (inference to best explanation)
+-- - induction: A→C, B→C ⊢ A→B (generalization from examples)
+-- - expectation: Convert (f,c) to a single expected value for decision-making
+--
+-- Constant k = 0.9 is the "evidence horizon" — controls how quickly confidence
+-- saturates as more evidence accumulates.
+-- =============================================================================
+
+-- TruthValue: Two-component uncertainty measure.
+--
+-- Fields:
+-- - frequency: Observed truth rate (number of positive observations / total)
+-- - confidence: Statistical confidence based on evidence amount
+--   Formula: c = n / (n + k) where n = number of observations, k = 0.9
 unique type TruthValue = { frequency : Float, confidence : Float }
 
 -- FEATURE 3: NAL truth value formulas

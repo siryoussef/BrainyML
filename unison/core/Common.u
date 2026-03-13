@@ -1,6 +1,25 @@
 
 namespace core
 
+-- =============================================================================
+-- Common.u — Core types used throughout BrainyML
+-- =============================================================================
+-- This file defines foundational types that every other module depends on:
+-- - Context: Identifies the source/agent of knowledge (for microtheory separation)
+-- - Provenance: Tracks origin, timing, and confidence of all facts
+-- =============================================================================
+
+-- Context: Identifies WHO knows WHAT and in what SITUATION.
+-- This enables microtheory-style reasoning (like Cyc) where facts can be
+-- true in one context but not another.
+--
+-- Variants:
+-- - CommonSense: Universal facts (e.g., "water is wet")
+-- - Agent aid: Knowledge specific to agent with ID 'aid'
+-- - User uid: Knowledge from user with ID 'uid'
+-- - System: System-level knowledge (configuration, capabilities)
+-- - Session sid: Temporary knowledge from session 'sid' (conversation context)
+-- - Domain text: Domain-specific knowledge (e.g., "biology", "law")
 unique type Context
   = CommonSense
   | Agent Text
@@ -9,6 +28,8 @@ unique type Context
   | Session Text
   | Domain Text
 
+-- Structural equality for Context (Unison doesn't auto-generate == for sum types)
+-- Used when filtering facts by context or checking if knowledge applies.
 Context.equals : Context -> Context -> Boolean
 Context.equals c1 c2 = match (c1, c2) with
   (CommonSense, CommonSense) -> true
@@ -19,6 +40,17 @@ Context.equals c1 c2 = match (c1, c2) with
   (Domain d1, Domain d2) -> d1 == d2
   _ -> false
 
+-- Provenance: Complete audit trail for every fact/memory.
+-- Critical for:
+-- - Trust: Know where information came from
+-- - Debugging: Trace how conclusions were derived
+-- - Revision: Update confidence when sources conflict
+--
+-- Fields:
+-- - source: Origin identifier (e.g., "NELL", "CSKG", "api:remember", "nars:inference")
+-- - timestamp: When this was created (Unix timestamp as Nat)
+-- - confidence: Current confidence score (0.0-1.0, updated by NARS formulas)
+-- - derivation: Optional chain explaining how this was inferred (e.g., "derived from fact #123 via deduction")
 unique type Provenance = {
   source : Text,
   timestamp : Nat,

@@ -1,8 +1,31 @@
 namespace core
 
+-- =============================================================================
+-- AtomSpace.u — Hypergraph storage for BrainyML knowledge
+-- =============================================================================
+-- AtomSpace is a directed labeled hypergraph that stores Atoms and their
+-- relationships. Think of it as a graph database where:
+-- - Nodes are Atoms (identified by Atom.id : Text)
+-- - Edges connect atoms with labeled relationships
+-- - Index enables fast lookups by atom text or relation
+--
+-- This file defines:
+-- - EdgeMeta: Metadata for edges (confidence, source, timestamp, priority)
+-- - Edge: Directed labeled connection between two atoms
+-- - AtomSpace: The hypergraph container with atoms, edges, and index
+-- - Operations: addAtom, addEdge, query, queryWithBindings, rewrite
+-- =============================================================================
+
 use core Atom
 use core Context Provenance
 
+-- EdgeMeta: Metadata attached to every edge in the hypergraph.
+-- Used for:
+-- - Confidence: How certain we are about this relationship
+-- - Source: Where this edge came from (NELL, CSKG, inferred, etc.)
+-- - Timestamp: When this edge was created
+-- - Priority: Attention value for ECAN-style memory management
+-- - Context: Which microtheory this edge belongs to
 unique type EdgeMeta = {
   confidence : Float,
   source : Text,
@@ -11,6 +34,14 @@ unique type EdgeMeta = {
   context : Context
 }
 
+-- Edge: A directed labeled connection between two atoms.
+-- Example: Edge "Dog" --[isa]--> "Animal"
+--
+-- Fields:
+-- - source: Atom.id of the source atom (e.g., "Dog")
+-- - label: The relation as an Atom (e.g., SymbolAtom "isa")
+-- - target: Atom.id of the target atom (e.g., "Animal")
+-- - metadata: EdgeMeta with confidence, source, etc.
 unique type Edge = {
   source : Text, -- Atom.id of source atom
   label : Atom,
@@ -18,12 +49,22 @@ unique type Edge = {
   metadata : EdgeMeta
 }
 
+-- AtomSpace: The main hypergraph data structure.
+--
+-- Fields:
+-- - atoms: Map from Atom.id to Atom (the actual knowledge)
+-- - edges: List of all relationships between atoms
+-- - index: Inverted index for fast lookups
+--   - For SymbolAtom "Dog": index."Dog" = ["Dog"]
+--   - For ExpressionAtom "(isa Dog Animal)": index.isa = ["(isa Dog Animal)"]
+--   - For edges: index."Dog" includes edges where Dog is source or target
 unique type AtomSpace = {
   atoms : Map Text Atom,
   edges : [Edge],
   index : Map Text [Text]
 }
 
+-- Empty AtomSpace constructor
 AtomSpace.empty : AtomSpace
 AtomSpace.empty = AtomSpace Map.empty [] Map.empty
 

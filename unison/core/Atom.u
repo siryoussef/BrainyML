@@ -1,7 +1,31 @@
 namespace core
 
+-- =============================================================================
+-- Atom.u — The fundamental building block of BrainyML knowledge
+-- =============================================================================
+-- Atoms are to BrainyML what atoms are to OpenCog: the basic unit of knowledge.
+-- Every fact, concept, relation, and memory is represented as an Atom.
+--
+-- This file defines:
+-- - GroundedValue: Opaque values (text, numbers, hashes) that can't be decomposed
+-- - Atom: 8 variants covering symbols, variables, expressions, and grounded values
+-- - Atom.id: Deterministic text identifier for use as Map keys
+-- - Atom.unify: Structural pattern matching (LOAD-BEARING for all inference)
+-- =============================================================================
+
 use core Context Provenance
 
+-- GroundedValue: Opaque values that are treated as atomic (not decomposed).
+-- Used when you need to store raw data inside the AtomSpace without exposing
+-- its internal structure to pattern matching.
+--
+-- Variants:
+-- - GText: Raw text strings
+-- - GFloat/GInt: Numeric literals
+-- - GBool: Boolean flags
+-- - GBlob: Binary data (embeddings, serialized objects)
+-- - GUnisonHash: Content-addressed reference to compiled Unison code
+--   (enables executable rules stored in AtomSpace — see Feature 6)
 unique type GroundedValue
   = GText Text
   | GFloat Float
@@ -10,6 +34,19 @@ unique type GroundedValue
   | GBlob Bytes
   | GUnisonHash Bytes -- Using Bytes since Hash isn't a built-in literal in standard ucm without base/crypto
 
+-- Atom: The fundamental knowledge representation unit.
+--
+-- Design rationale:
+-- - SymbolAtom: Named entities ("Dog", "isa", "John")
+-- - VariableAtom: Wildcards for pattern matching ("?x", "?who")
+-- - ExpressionAtom: S-expressions for relations "(isa Dog Animal)"
+-- - GroundedAtom: Opaque data (text, numbers, code hashes)
+-- - FloatAtom/IntAtom/BoolAtom: Convenience for numeric/bool literals
+--
+-- This structure supports:
+-- - Hypergraph representation (ExpressionAtom can contain any Atom)
+-- - Pattern matching (VariableAtom binds during unification)
+-- - Type safety (GroundedAtom wraps typed values)
 unique type Atom
   = SymbolAtom Text
   | VariableAtom Text
@@ -19,7 +56,19 @@ unique type Atom
   | IntAtom Int
   | BoolAtom Boolean
 
--- Extract a text ID for an Atom (used as Map key in AtomSpace)
+-- Atom.id: Generate a deterministic text identifier for an Atom.
+-- Used as the key in AtomSpace.atoms : Map Text Atom.
+--
+-- ID format conventions:
+-- - SymbolAtom "Dog" → "Dog"
+-- - VariableAtom "x" → "?x" (prefixed to distinguish from symbols)
+-- - ExpressionAtom → "(isa Dog Animal)" (S-expression format)
+-- - GroundedAtom (GText "hello") → "g:hello" (prefixed with 'g:')
+-- - GroundedAtom (GBool true) → "g:true"
+-- - GroundedAtom (GBlob _) → "g:blob" (hash not shown, too long)
+--
+-- Note: This is a TEXT identifier, not a cryptographic hash.
+-- For content-addressing, use GroundedAtom (GUnisonHash bytes).
 Atom.id : Atom -> Text
 Atom.id = cases
   SymbolAtom t -> t
@@ -35,18 +84,38 @@ Atom.id = cases
   IntAtom i -> Int.toText i
   BoolAtom b -> if b then "true" else "false"
 
--- FEATURE 1: Structural unification / pattern matching
--- Given two atoms (where one may contain VariableAtom wildcards),
--- returns variable bindings that make them equal, or None if they cannot unify.
+-- FEATURE 1: Atom.unify — Structural pattern matching with variable binding
+-- =============================================================================
+-- This is THE most critical function in BrainyML. Everything depends on it:
+-- - AtomSpace.query: Find atoms matching a pattern
+-- - NARS inference: Match rule antecedents to beliefs
+-- - Rule firing: Check if conditions are satisfied
+-- - Episodic recall: Find similar past experiences
+--
+-- How it works:
+-- Given two atoms where one may contain VariableAtom wildcards,
+-- returns the variable bindings that make them equal, or None if impossible.
 --
 -- Examples:
---   match (VariableAtom "x") (SymbolAtom "Dog") → Some [("x", SymbolAtom "Dog")]
---   match (SymbolAtom "Dog") (SymbolAtom "Dog") → Some []
---   match (SymbolAtom "Dog") (SymbolAtom "Cat") → None
---   match (ExpressionAtom [VariableAtom "x", SymbolAtom "isa"])
---         (ExpressionAtom [SymbolAtom "Dog", SymbolAtom "isa"])
+--   Atom.unify (VariableAtom "x") (SymbolAtom "Dog")
 --     → Some [("x", SymbolAtom "Dog")]
-
+--
+--   Atom.unify (SymbolAtom "Dog") (SymbolAtom "Dog")
+--     → Some []  (no variables to bind)
+--
+--   Atom.unify (SymbolAtom "Dog") (SymbolAtom "Cat")
+--     → None  (different symbols can't unify)
+--
+--   Atom.unify (ExpressionAtom [VariableAtom "x", SymbolAtom "isa"])
+--             (ExpressionAtom [SymbolAtom "Dog", SymbolAtom "isa"])
+--     → Some [("x", SymbolAtom "Dog")]
+--
+-- Algorithm:
+-- 1. Variables match anything and produce a binding
+-- 2. Symbols must be identical
+-- 3. Expressions match element-by-element (propagating bindings)
+-- 4. Grounded atoms match by ID equality
+-- 5. Numeric/bool literals must be exactly equal
 Atom.unify : Atom -> Atom -> Optional [(Text, Atom)]
 Atom.unify pattern target = match (pattern, target) with
   -- A variable matches anything and produces a binding
@@ -71,7 +140,9 @@ Atom.unify pattern target = match (pattern, target) with
   -- Mismatched types
   _ -> None
 
--- Helper: match two lists of atoms, collecting all bindings
+-- Helper: Recursively match two lists of atoms, accumulating variable bindings.
+-- Returns None if any pair fails to unify, or Some with all bindings combined.
+-- Used by Atom.unify for ExpressionAtom matching.
 matchList : [Atom] -> [Atom] -> Optional [(Text, Atom)]
 matchList ps ts = match (ps, ts) with
   ([], []) -> Some []

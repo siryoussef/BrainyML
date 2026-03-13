@@ -1,5 +1,28 @@
 namespace memory
 
+-- =============================================================================
+-- EpisodicMemory.u — Time-stamped experiences with attention management
+-- =============================================================================
+-- Episodic memory is CRITICAL for OpenClaw as a living agent. Unlike semantic
+-- memory (facts), episodic memory stores:
+-- - WHEN something happened (timestamp)
+-- - WHERE/WHO was involved (context: agent, session, domain)
+-- - HOW IMPORTANT it was (salience — ECAN-style attention value)
+--
+-- This enables:
+-- - Temporal reasoning: "What happened before X?"
+-- - Context-aware recall: "What did user Alice tell me yesterday?"
+-- - Forgetting: Low-salience episodes decay over time
+-- - Similarity search: "Have I seen something like this before?"
+--
+-- This file implements Feature 9:
+-- - Episode type with core:Atom, context, timestamp, salience, temporal info
+-- - recordEpisode: Store new episode with generated ID
+-- - recallByTime: Filter by timestamp range and context
+-- - recallSimilar: Find structurally similar episodes via Atom.unify
+-- - decaySalience: Exponential forgetting (newSalience = salience * decayFactor)
+-- =============================================================================
+
 -- FEATURE 9: Episodic memory layer
 -- Critical for OpenClaw as a living agent — remembering *when* and *in what context*.
 

@@ -1,5 +1,32 @@
 namespace api
 
+-- =============================================================================
+-- Operations.u — BrainyML Unified API (7 core operations)
+-- =============================================================================
+-- This is THE interface that OpenClaw (and other agents) use to interact with
+-- BrainyML. All internal complexity (NARS, axiomatic logic, knowledge graphs,
+-- episodic memory) is hidden behind these 7 operations.
+--
+-- THE 7 CORE OPERATIONS (DO NOT CHANGE — OpenClaw depends on stability):
+-- 1. remember: Store text with attribution, auto-extract facts
+-- 2. recall: Search memories by text query
+-- 3. assertFact: Add a structured fact (subject-predicate-object)
+-- 4. retract: Mark a fact as false (truth maintenance, not deletion)
+-- 5. query: Pattern-match against the knowledge graph
+-- 6. infer: Run inference (NARS, axiomatic, or auto-select)
+-- 7. explain: Walk provenance chain to show how a fact was derived
+--
+-- ADDITIONAL OPERATIONS (for OpenClaw conversation integration):
+-- - episodeRecord: Record a conversation turn as an episodic memory
+-- - episodeRecall: Recall episodes by time range
+-- - ruleRun: Execute a stored inference rule by name
+--
+-- Design principles:
+-- - All operations are pure functions: UnifiedMemory -> UnifiedMemory
+-- - No IO in this layer (rule execution happens via UCM shell calls)
+-- - Return types are wrapped in ApiResult for uniform error handling
+-- =============================================================================
+
 -- BrainyML Unified API
 -- 7 core operations: remember, recall, assert, retract, query, infer, explain
 -- + episodeRecord / episodeRecall for OpenClaw conversation integration
