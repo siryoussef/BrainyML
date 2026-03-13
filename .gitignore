@@ -1,0 +1,8 @@
+.devenv/
+.direnv/
+.venv/
+__pycache__/
+*.pyc
+result
+.unison/
+submodules/NELL/
