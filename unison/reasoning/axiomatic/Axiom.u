@@ -1,4 +1,6 @@
-use reasoning.axiomatic.Logic Proposition Term
+namespace reasoning.axiomatic
+
+use reasoning.axiomatic Proposition Term
 
 unique type Axiom = {
   name : Text,

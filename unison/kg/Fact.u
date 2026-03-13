@@ -1,8 +1,10 @@
-use kg.Entity Entity KGSource
-use kg.Relation Relation
-use core.Atom Atom ExpressionAtom
-use core.Common Context Provenance
-use reasoning.nars.TruthValue TruthValue
+namespace kg
+
+use kg Entity KGSource
+use kg Relation
+use core Atom
+use core Context Provenance
+use reasoning.nars TruthValue
 
 unique type Fact = {
   subject : Entity,

@@ -1,3 +1,5 @@
+namespace reasoning.nars
+
 unique type TruthValue = { frequency : Float, confidence : Float }
 
 -- FEATURE 3: NAL truth value formulas
@@ -10,58 +12,58 @@ k = 0.9
 --          c = (c1+c2-c1·c2) / (c1+c2-c1·c2+k)
 revision : TruthValue -> TruthValue -> TruthValue
 revision v1 v2 =
-  let f1 = TruthValue.frequency v1
-  let c1 = TruthValue.confidence v1
-  let f2 = TruthValue.frequency v2
-  let c2 = TruthValue.confidence v2
-  let denom = c1 + c2 - c1 * c2
-  let f = if denom == 0.0 then 0.5
+  f1 = TruthValue.frequency v1
+  c1 = TruthValue.confidence v1
+  f2 = TruthValue.frequency v2
+  c2 = TruthValue.confidence v2
+  denom = c1 + c2 - c1 * c2
+  f = if denom == 0.0 then 0.5
           else (f1 * c1 * (1.0 - c2) + f2 * c2 * (1.0 - c1)) / denom
-  let c = denom / (denom + k)
+  c = denom / (denom + k)
   TruthValue f c
 
 -- deduction: A→B, B→C ⊢ A→C
 -- Formula: f = f1·f2, c = c1·c2·f1·f2
 deduction : TruthValue -> TruthValue -> TruthValue
 deduction v1 v2 =
-  let f1 = TruthValue.frequency v1
-  let c1 = TruthValue.confidence v1
-  let f2 = TruthValue.frequency v2
-  let c2 = TruthValue.confidence v2
-  let f = f1 * f2
-  let c = c1 * c2 * f1 * f2
+  f1 = TruthValue.frequency v1
+  c1 = TruthValue.confidence v1
+  f2 = TruthValue.frequency v2
+  c2 = TruthValue.confidence v2
+  f = f1 * f2
+  c = c1 * c2 * f1 * f2
   TruthValue f c
 
 -- abduction: A→B, A→C ⊢ C→B (weak)
 -- Formula: f = f2, c = f1·c1·c2 / (f1·c1·c2 + k)
 abduction : TruthValue -> TruthValue -> TruthValue
 abduction v1 v2 =
-  let f1 = TruthValue.frequency v1
-  let c1 = TruthValue.confidence v1
-  let f2 = TruthValue.frequency v2
-  let c2 = TruthValue.confidence v2
-  let w = f1 * c1 * c2
-  let f = f2
-  let c = w / (w + k)
+  f1 = TruthValue.frequency v1
+  c1 = TruthValue.confidence v1
+  f2 = TruthValue.frequency v2
+  c2 = TruthValue.confidence v2
+  w = f1 * c1 * c2
+  f = f2
+  c = w / (w + k)
   TruthValue f c
 
 -- induction: A→C, B→C ⊢ A→B (weak)
 -- Formula: f = f1, c = f2·c1·c2 / (f2·c1·c2 + k)
 induction : TruthValue -> TruthValue -> TruthValue
 induction v1 v2 =
-  let f1 = TruthValue.frequency v1
-  let c1 = TruthValue.confidence v1
-  let f2 = TruthValue.frequency v2
-  let c2 = TruthValue.confidence v2
-  let w = f2 * c1 * c2
-  let f = f1
-  let c = w / (w + k)
+  f1 = TruthValue.frequency v1
+  c1 = TruthValue.confidence v1
+  f2 = TruthValue.frequency v2
+  c2 = TruthValue.confidence v2
+  w = f2 * c1 * c2
+  f = f1
+  c = w / (w + k)
   TruthValue f c
 
 -- expectation: expected truth of a statement
 -- Formula: e = c·(f - 0.5) + 0.5
 expectation : TruthValue -> Float
 expectation v =
-  let f = TruthValue.frequency v
-  let c = TruthValue.confidence v
+  f = TruthValue.frequency v
+  c = TruthValue.confidence v
   c * (f - 0.5) + 0.5

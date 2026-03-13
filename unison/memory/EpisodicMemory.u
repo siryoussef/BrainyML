@@ -1,9 +1,10 @@
+namespace memory
+
 -- FEATURE 9: Episodic memory layer
 -- Critical for OpenClaw as a living agent — remembering *when* and *in what context*.
 
-use core.Common Context Provenance
-use core.Atom Atom SymbolAtom ExpressionAtom
-use memory.MemoryGraph TemporalInfo
+use core Context Provenance
+use core Atom
 
 unique type Episode = {
   id : Text,
@@ -16,15 +17,14 @@ unique type Episode = {
 }
 
 Episode.toAtom : Episode -> Atom
-Episode.toAtom ep =
-  ExpressionAtom [SymbolAtom "episode", SymbolAtom (Episode.id ep), Episode.core ep]
+Episode.toAtom ep = ExpressionAtom [SymbolAtom "episode", SymbolAtom (Episode.id ep), Episode.core ep]
 
 -- recordEpisode: Store an episode (caller is responsible for adding to UnifiedMemory.episodes)
 -- Returns the episode with a generated ID
 recordEpisode : Atom -> Context -> Nat -> Float -> Provenance -> Episode
 recordEpisode core ctx timestamp salience prov =
-  let id = "ep-" ++ Nat.toText timestamp
-  let temporal = TemporalInfo timestamp None false
+  id = "ep-" ++ Nat.toText timestamp
+  temporal = TemporalInfo timestamp None false
   Episode id core ctx timestamp salience temporal prov
 
 -- recallByTime: Retrieve episodes between two timestamps for a given context
@@ -33,25 +33,24 @@ recallByTime fromTime toTime ctx episodes =
   List.filter (ep ->
     Episode.timestamp ep >= fromTime &&
     Episode.timestamp ep <= toTime &&
-    Episode.context ep == ctx
+    Context.equals (Episode.context ep) ctx
   ) episodes
 
--- recallSimilar: Find the N most structurally similar episodes using Atom.match
+-- Helper: check if an episode's core atom matches a pattern
+matchesPattern : Atom -> Episode -> Boolean
+matchesPattern pattern ep =
+  match Atom.unify pattern (Episode.core ep) with
+    Some _ -> true
+    None -> false
+
+-- recallSimilar: Find the N most structurally similar episodes using Atom.unify
 recallSimilar : Atom -> Nat -> [Episode] -> [Episode]
 recallSimilar pattern limit episodes =
-  let matches = List.filter (ep ->
-    match Atom.match pattern (Episode.core ep) with
-      Some _ -> true
-      None -> false
-  ) episodes
-  List.take limit matches
+  filtered = List.filter (matchesPattern pattern) episodes
+  List.take limit filtered
 
 -- decaySalience: Apply exponential decay to all episode salience values
 -- newSalience = salience * decayFactor (simulates forgetting)
 decaySalience : Float -> [Episode] -> [Episode]
 decaySalience decayFactor episodes =
-  List.map (ep ->
-    Episode (Episode.id ep) (Episode.core ep) (Episode.context ep)
-      (Episode.timestamp ep) (Episode.salience ep * decayFactor)
-      (Episode.temporal ep) (Episode.provenance ep)
-  ) episodes
+  List.map (ep -> Episode (Episode.id ep) (Episode.core ep) (Episode.context ep) (Episode.timestamp ep) (Episode.salience ep * decayFactor) (Episode.temporal ep) (Episode.provenance ep)) episodes

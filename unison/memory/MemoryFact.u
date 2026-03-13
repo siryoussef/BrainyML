@@ -1,5 +1,7 @@
-use core.Common Context Provenance
-use core.Atom Atom SymbolAtom ExpressionAtom GroundedAtom GroundedValue
+namespace memory
+
+use core Context Provenance
+use core Atom
 
 unique type ExtractionMethod
   = SimpleExtraction

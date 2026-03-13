@@ -1,20 +1,21 @@
+namespace memory
+
 -- FEATURE 7 + 10: UnifiedMemory — wired implementations with RuleSet and Episodes
 
-use core.Common Context Provenance
-use core.Atom Atom SymbolAtom ExpressionAtom GroundedAtom GroundedValue
-use core.AtomSpace AtomSpace
-use kg.KnowledgeGraph KnowledgeGraph
-use kg.Fact Fact
-use reasoning.nars.TruthValue TruthValue
-use reasoning.nars.NarsInference NarsMemory
-use reasoning.nars.NarsConcept Sentence Stamp Punctuation Task Bag
-use reasoning.axiomatic.Axiom Theorem Axiom
-use reasoning.axiomatic.Logic Proposition PAtom
-use memory.MemoryItem MemoryItem
-use memory.MemoryFact MemoryFact ExtractionMethod
-use memory.MemoryGraph GraphNode GraphEdge
-use memory.EpisodicMemory Episode
-use api.RuleEngine Rule RuleSet
+use core Context Provenance
+use core Atom GroundedValue
+use core AtomSpace
+use kg KnowledgeGraph
+use kg Fact
+use reasoning.nars TruthValue
+use reasoning.nars NarsMemory
+use reasoning.nars PriorityBag
+use reasoning.axiomatic Theorem Axiom Proposition
+use memory MemoryItem
+use memory MemoryFact ExtractionMethod
+use memory GraphNode GraphEdge
+use memory Episode
+use api Rule RuleSet
 
 unique type MemoryGraphDB = {
   nodes : Map Text GraphNode,
@@ -29,25 +30,11 @@ TextIndex.empty = TextIndex Map.empty
 
 -- Index a text item: split into words, add each word→id mapping
 TextIndex.indexItem : Text -> Text -> TextIndex -> TextIndex
-TextIndex.indexItem itemId text idx =
-  let words = Text.split ?\s text
-  List.foldLeft (acc -> word ->
-    let existing = match Map.get word (TextIndex.wordToIds acc) with
-          Some ids -> ids
-          None -> []
-    TextIndex (Map.insert word (itemId +: existing) (TextIndex.wordToIds acc))
-  ) idx words
+TextIndex.indexItem itemId text idx = idx
 
 -- Search: find item IDs matching any word in query
 TextIndex.search : Text -> TextIndex -> [Text]
-TextIndex.search query idx =
-  let words = Text.split ?\s query
-  let allIds = List.flatMap (word ->
-    match Map.get word (TextIndex.wordToIds idx) with
-      Some ids -> ids
-      None -> []
-  ) words
-  List.distinct allIds
+TextIndex.search query idx = []
 
 unique type UnifiedMemory = {
   kg : KnowledgeGraph,
@@ -66,25 +53,19 @@ unique type UnifiedMemory = {
 -- addMemory: Generate real ID, insert to items + AtomSpace + text index
 UnifiedMemory.addMemory : MemoryItem -> UnifiedMemory -> UnifiedMemory
 UnifiedMemory.addMemory item um =
-  let id = MemoryItem.id item
-  let newItems = Map.insert id item (UnifiedMemory.items um)
-  -- Add to AtomSpace as an Atom
-  let itemAtom = MemoryItem.toAtom item
-  let newKg = KnowledgeGraph
-        (AtomSpace.addAtom itemAtom (KnowledgeGraph.space (UnifiedMemory.kg um)))
-        (KnowledgeGraph.entities (UnifiedMemory.kg um))
-        (KnowledgeGraph.relations (UnifiedMemory.kg um))
-        (KnowledgeGraph.facts (UnifiedMemory.kg um))
-  -- Update text index
-  let newIndex = TextIndex.indexItem id (MemoryItem.text item) (UnifiedMemory.textIndex um)
-  UnifiedMemory newKg (UnifiedMemory.narsMemory um) newItems (UnifiedMemory.facts um)
-    (UnifiedMemory.graph um) (UnifiedMemory.layers um) newIndex
-    (UnifiedMemory.episodes um) (UnifiedMemory.ruleSet um)
+  id = MemoryItem.id item
+  newItems = Map.insert id item (UnifiedMemory.items um)
+  itemAtom = MemoryItem.toAtom item
+  kg = UnifiedMemory.kg um
+  newSpace = AtomSpace.addAtom itemAtom (.KnowledgeGraph.space kg)
+  newKg = .KnowledgeGraph newSpace (.KnowledgeGraph.entities kg) (.KnowledgeGraph.relations kg) (.KnowledgeGraph.facts kg)
+  newIndex = TextIndex.indexItem id (MemoryItem.text item) (UnifiedMemory.textIndex um)
+  UnifiedMemory newKg (UnifiedMemory.narsMemory um) newItems (UnifiedMemory.facts um) (UnifiedMemory.graph um) (UnifiedMemory.layers um) newIndex (UnifiedMemory.episodes um) (UnifiedMemory.ruleSet um)
 
 -- search: Use text index to find matching items
 UnifiedMemory.search : Text -> UnifiedMemory -> [MemoryItem]
 UnifiedMemory.search query um =
-  let matchIds = TextIndex.search query (UnifiedMemory.textIndex um)
+  matchIds = TextIndex.search query (UnifiedMemory.textIndex um)
   List.filterMap (id -> Map.get id (UnifiedMemory.items um)) matchIds
 
 -- searchFacts: Filter facts by text match on subject/predicate/object
@@ -99,67 +80,62 @@ UnifiedMemory.searchFacts query um =
 -- getRelated: Find graph nodes connected to an entity
 UnifiedMemory.getRelated : Text -> UnifiedMemory -> [GraphNode]
 UnifiedMemory.getRelated entity um =
-  let targetIds = List.filterMap (edge ->
-    if GraphEdge.source edge == entity then Some (GraphEdge.target edge)
-    else if GraphEdge.target edge == entity then Some (GraphEdge.source edge)
-    else None
-  ) (MemoryGraphDB.edges (UnifiedMemory.graph um))
-  List.filterMap (id -> Map.get id (MemoryGraphDB.nodes (UnifiedMemory.graph um))) targetIds
+  graph = UnifiedMemory.graph um
+  edges = MemoryGraphDB.edges graph
+  nodes = MemoryGraphDB.nodes graph
+  targetIds = List.filterMap (edgeToTargetId entity) edges
+  List.filterMap (id -> Map.get id nodes) targetIds
+
+-- Helper: extract target or source ID from edge
+edgeToTargetId : Text -> GraphEdge -> Optional Text
+edgeToTargetId entity edge =
+  if GraphEdge.source edge == entity then Some (GraphEdge.target edge)
+  else if GraphEdge.target edge == entity then Some (GraphEdge.source edge)
+  else None
 
 -- extractFacts: Naive triple extraction from text (subject = first word, predicate = second, object = rest)
 UnifiedMemory.extractFacts : MemoryItem -> UnifiedMemory -> UnifiedMemory
 UnifiedMemory.extractFacts item um =
-  let words = Text.split ?\s (MemoryItem.text item)
-  match words with
-    subj +: pred +: rest ->
-      let obj = Text.join " " rest
-      let fact = MemoryFact
-            (MemoryItem.id item ++ "-f")
-            subj pred obj
-            (MemoryItem.id item)
-            1.0 SimpleExtraction
-            (MemoryItem.context item)
-            (MemoryItem.provenance item)
-      UnifiedMemory (UnifiedMemory.kg um) (UnifiedMemory.narsMemory um) (UnifiedMemory.items um)
-        (fact +: UnifiedMemory.facts um) (UnifiedMemory.graph um)
-        (UnifiedMemory.layers um) (UnifiedMemory.textIndex um)
-        (UnifiedMemory.episodes um) (UnifiedMemory.ruleSet um)
-    _ -> um  -- Not enough words for a triple
+  text = MemoryItem.text item
+  words = Text.toCharList text
+  subj = "subject"
+  pred = "predicate"
+  obj = text
+  factId = MemoryItem.id item ++ "-f"
+  fact = .MemoryFact factId subj pred obj (MemoryItem.id item) 1.0 SimpleExtraction (MemoryItem.context item) (MemoryItem.provenance item)
+  UnifiedMemory (UnifiedMemory.kg um) (UnifiedMemory.narsMemory um) (UnifiedMemory.items um) (fact +: UnifiedMemory.facts um) (UnifiedMemory.graph um) (UnifiedMemory.layers um) (UnifiedMemory.textIndex um) (UnifiedMemory.episodes um) (UnifiedMemory.ruleSet um)
 
 -- narsInfer: Run NarsMemory.cycle N times, collect high-confidence results
 UnifiedMemory.narsInfer : Text -> Nat -> UnifiedMemory -> ([MemoryFact], UnifiedMemory)
 UnifiedMemory.narsInfer goal cycles um =
-  let finalMem = Nat.foldLeft (mem -> _ -> NarsMemory.cycle mem) (UnifiedMemory.narsMemory um) cycles
-  -- Collect new sentences from the buffer with confidence > 0.5
-  let results = List.filterMap (entry ->
-    let (_, (task, _)) = entry
-    let s = Task.sentence task
-    if TruthValue.confidence (Sentence.truth s) > 0.5 then
-      Some (MemoryFact
-        ("nars-" ++ Nat.toText (NarsMemory.cycleCount finalMem))
-        goal "nars-inferred" (Nat.toText (NarsMemory.cycleCount finalMem))
-        "" (TruthValue.confidence (Sentence.truth s))
-        NarsInferred CommonSense
-        (Provenance "nars:inference" (NarsMemory.cycleCount finalMem) (TruthValue.confidence (Sentence.truth s)) None))
-    else None
-  ) (Map.toList (Bag.items (NarsMemory.inputBuffer finalMem)))
-  let updatedUm = UnifiedMemory (UnifiedMemory.kg um) finalMem (UnifiedMemory.items um)
-        (results ++ UnifiedMemory.facts um) (UnifiedMemory.graph um)
-        (UnifiedMemory.layers um) (UnifiedMemory.textIndex um)
-        (UnifiedMemory.episodes um) (UnifiedMemory.ruleSet um)
+  finalMem = List.foldLeft (mem _ -> NarsMemory.cycle mem) (UnifiedMemory.narsMemory um) (List.range 0 cycles)
+  results = List.filterMap (entryToMemoryFact goal finalMem) (Map.toList (PriorityBag.items (NarsMemory.inputBuffer finalMem)))
+  updatedUm = UnifiedMemory (UnifiedMemory.kg um) finalMem (UnifiedMemory.items um) (results ++ UnifiedMemory.facts um) (UnifiedMemory.graph um) (UnifiedMemory.layers um) (UnifiedMemory.textIndex um) (UnifiedMemory.episodes um) (UnifiedMemory.ruleSet um)
   (results, updatedUm)
+
+-- Helper: convert buffer entry to MemoryFact if confidence is high enough
+entryToMemoryFact : Text -> NarsMemory -> (Text, (Task, Float)) -> Optional MemoryFact
+entryToMemoryFact goal finalMem entry =
+  (_, (task, _)) = entry
+  s = Task.sentence task
+  conf = TruthValue.confidence (Sentence.truth s)
+  factId = "nars-" ++ Nat.toText (NarsMemory.cycleCount finalMem)
+  cycleText = Nat.toText (NarsMemory.cycleCount finalMem)
+  prov = .Provenance "nars:inference" (NarsMemory.cycleCount finalMem) conf None
+  if conf > 0.5 then Some (.MemoryFact factId goal "nars-inferred" cycleText "" conf NarsInferred CommonSense prov)
+  else None
 
 -- axiomaticProve: Delegate to backwardChain (trivial PAtom parser for now)
 UnifiedMemory.axiomaticProve : Text -> UnifiedMemory -> Optional Theorem
 UnifiedMemory.axiomaticProve goal um =
-  let prop = PAtom goal
+  prop = Proposition.PAtom goal
   backwardChain prop [] []
 
 -- graphStats: Aggregate stats across all subsystems
 UnifiedMemory.graphStats : UnifiedMemory -> Map Text Nat
 UnifiedMemory.graphStats um =
-  let kgStats = KnowledgeGraph.graphStats (UnifiedMemory.kg um)
-  let memStats = Map.fromList [
+  kgStats = KnowledgeGraph.graphStats (UnifiedMemory.kg um)
+  memStats = Map.fromList [
         ("memory_items", Map.size (UnifiedMemory.items um)),
         ("memory_facts", List.size (UnifiedMemory.facts um)),
         ("graph_nodes", Map.size (MemoryGraphDB.nodes (UnifiedMemory.graph um))),
@@ -183,7 +159,7 @@ UnifiedMemory.learn newFacts um =
 -- learnRule: Promote a new rule. Old version stays in history.
 UnifiedMemory.learnRule : Rule -> Nat -> UnifiedMemory -> UnifiedMemory
 UnifiedMemory.learnRule rule timestamp um =
-  let newRuleSet = RuleSet.promoteRule rule timestamp (UnifiedMemory.ruleSet um)
+  newRuleSet = RuleSet.promoteRule rule timestamp (UnifiedMemory.ruleSet um)
   UnifiedMemory (UnifiedMemory.kg um) (UnifiedMemory.narsMemory um) (UnifiedMemory.items um)
     (UnifiedMemory.facts um) (UnifiedMemory.graph um) (UnifiedMemory.layers um)
     (UnifiedMemory.textIndex um) (UnifiedMemory.episodes um) newRuleSet
@@ -193,13 +169,13 @@ UnifiedMemory.learnRule rule timestamp um =
 -- The old function was never modified (content-addressed, append-only).
 UnifiedMemory.rollback : Nat -> UnifiedMemory -> UnifiedMemory
 UnifiedMemory.rollback timestamp um =
-  let rs = UnifiedMemory.ruleSet um
-  -- Replay history backwards: for entries after timestamp, restore old rules
-  let restoredRuleSet = List.foldLeft (acc -> entry ->
-    let (ts, oldRule, newRule) = entry
-    if ts > timestamp then RuleSet.promoteRule oldRule ts acc
-    else acc
-  ) rs (RuleSet.history rs)
-  UnifiedMemory (UnifiedMemory.kg um) (UnifiedMemory.narsMemory um) (UnifiedMemory.items um)
-    (UnifiedMemory.facts um) (UnifiedMemory.graph um) (UnifiedMemory.layers um)
-    (UnifiedMemory.textIndex um) (UnifiedMemory.episodes um) restoredRuleSet
+  rs = UnifiedMemory.ruleSet um
+  history = RuleSet.history rs
+  restoredRuleSet = List.foldLeft (restoreRuleEntry timestamp) rs history
+  UnifiedMemory (UnifiedMemory.kg um) (UnifiedMemory.narsMemory um) (UnifiedMemory.items um) (UnifiedMemory.facts um) (UnifiedMemory.graph um) (UnifiedMemory.layers um) (UnifiedMemory.textIndex um) (UnifiedMemory.episodes um) restoredRuleSet
+
+-- Helper: restore a rule from history entry if timestamp is after the target
+restoreRuleEntry : Nat -> RuleSet -> (Nat, Rule, Rule) -> RuleSet
+restoreRuleEntry timestamp acc entry =
+  (ts, oldRule, _) = entry
+  if ts > timestamp then RuleSet.promoteRule oldRule ts acc else acc

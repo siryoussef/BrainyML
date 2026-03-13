@@ -1,5 +1,7 @@
-use core.Atom Atom
-use core.Common Context Provenance
+namespace kg
+
+use core Atom
+use core Context Provenance
 
 unique type Relation = {
   id : Text,

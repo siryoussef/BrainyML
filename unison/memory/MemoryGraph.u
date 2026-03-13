@@ -1,6 +1,8 @@
-use core.Common Context Provenance
-use core.Atom Atom SymbolAtom
-use kg.Entity KGSource
+namespace memory
+
+use core Context Provenance
+use core Atom
+use kg KGSource
 
 unique type MemoryGroup
   = PrivateAgent Text

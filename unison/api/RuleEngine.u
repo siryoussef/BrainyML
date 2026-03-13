@@ -1,9 +1,11 @@
+namespace api
+
 -- FEATURE 6: GUnisonHash — rule-as-atom execution bridge
 -- Inference rules stored as content-addressed Unison functions inside the AtomSpace,
 -- queryable and executable through the same API as facts.
 
-use core.Common Context Provenance
-use core.Atom Atom SymbolAtom GroundedAtom GroundedValue
+use core Context Provenance
+use core Atom GroundedValue
 
 -- A rule is a named reference to a compiled Unison function stored by its hash
 unique type Rule = {
@@ -29,11 +31,11 @@ RuleSet.empty = RuleSet [] []
 -- If a rule with the same name exists, replace it and log old→new in history.
 RuleSet.promoteRule : Rule -> Nat -> RuleSet -> RuleSet
 RuleSet.promoteRule newRule timestamp rs =
-  let existing = List.find (r -> Rule.name r == Rule.name newRule) (RuleSet.active rs)
+  existing = List.find (r -> Rule.name r == Rule.name newRule) (RuleSet.active rs)
   match existing with
     Some oldRule ->
-      let filtered = List.filter (r -> Rule.name r != Rule.name newRule) (RuleSet.active rs)
-      let newHistory = (timestamp, oldRule, newRule) +: RuleSet.history rs
+      filtered = List.filter (r -> Rule.name r != Rule.name newRule) (RuleSet.active rs)
+      newHistory = (timestamp, oldRule, newRule) +: RuleSet.history rs
       RuleSet (newRule +: filtered) newHistory
     None ->
       -- No existing rule with this name; just add it
@@ -42,13 +44,13 @@ RuleSet.promoteRule newRule timestamp rs =
 -- retireRule: Remove a rule from the active set by name
 RuleSet.retireRule : Text -> RuleSet -> RuleSet
 RuleSet.retireRule name rs =
-  let filtered = List.filter (r -> Rule.name r != name) (RuleSet.active rs)
+  filtered = List.filter (r -> Rule.name r != name) (RuleSet.active rs)
   RuleSet filtered (RuleSet.history rs)
 
 -- activeForContext: Get all active rules matching a given context
 RuleSet.activeForContext : Context -> RuleSet -> [Rule]
 RuleSet.activeForContext ctx rs =
-  List.filter (r -> Rule.context r == ctx) (RuleSet.active rs)
+  List.filter (r -> Context.equals (Rule.context r) ctx) (RuleSet.active rs)
 
 -- findRule: Look up a rule by name
 RuleSet.findRule : Text -> RuleSet -> Optional Rule

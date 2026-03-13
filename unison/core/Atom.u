@@ -1,4 +1,6 @@
-use core.Common Context Provenance
+namespace core
+
+use core Context Provenance
 
 unique type GroundedValue
   = GText Text
@@ -45,8 +47,8 @@ Atom.id = cases
 --         (ExpressionAtom [SymbolAtom "Dog", SymbolAtom "isa"])
 --     → Some [("x", SymbolAtom "Dog")]
 
-Atom.match : Atom -> Atom -> Optional [(Text, Atom)]
-Atom.match pattern target = match (pattern, target) with
+Atom.unify : Atom -> Atom -> Optional [(Text, Atom)]
+Atom.unify pattern target = match (pattern, target) with
   -- A variable matches anything and produces a binding
   (VariableAtom v, _) -> Some [(v, target)]
   -- A target variable also matches (symmetric case)
@@ -74,7 +76,7 @@ matchList : [Atom] -> [Atom] -> Optional [(Text, Atom)]
 matchList ps ts = match (ps, ts) with
   ([], []) -> Some []
   (p +: restP, t +: restT) ->
-    match Atom.match p t with
+    match Atom.unify p t with
       None -> None
       Some bindings ->
         match matchList restP restT with

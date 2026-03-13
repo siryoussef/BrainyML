@@ -1,3 +1,5 @@
+namespace reasoning.nars
+
 unique type SetType = ExtensionalSet | IntensionalSet
 unique type ImageType = ExtImage | IntImage
 unique type TemporalOrder = Before | After | Concurrent

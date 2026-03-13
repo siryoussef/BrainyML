@@ -1,5 +1,7 @@
-use reasoning.nars.Narsese NarsTerm NInheritance
-use reasoning.nars.TruthValue TruthValue
+namespace reasoning.nars
+
+use reasoning.nars NarsTerm NInheritance
+use reasoning.nars TruthValue
 
 unique type Stamp = {
   evidenceBase : [Nat],
@@ -41,7 +43,7 @@ unique type TaskLink = {
   priority : Float
 }
 
-unique type Bag a = {
+unique type PriorityBag a = {
   items : Map Text (a, Float),
   capacity : Nat
 }
@@ -49,42 +51,44 @@ unique type Bag a = {
 -- FEATURE 5 (part 1): Probabilistic selection from a Bag using a seed
 -- Selects an item with probability proportional to its priority weight.
 -- Returns the selected item and the bag with that item removed.
-Bag.selectWithSeed : Nat -> Bag a -> Optional (a, Bag a)
-Bag.selectWithSeed seed bag =
-  let entries = Map.toList (Bag.items bag)
+PriorityBag.selectWithSeed : Nat -> PriorityBag a -> Optional (a, PriorityBag a)
+PriorityBag.selectWithSeed seed bag =
+  entries = Map.toList (PriorityBag.items bag)
   match entries with
     [] -> None
     _ ->
-      let totalWeight = List.foldLeft (acc -> entry ->
-            let (_, (_, w)) = entry
-            acc + w
-          ) 0.0 entries
+      totalWeight = foldSum 0.0 entries
       if totalWeight == 0.0 then None
       else
-        -- Use seed to generate a threshold between 0 and totalWeight
-        let hashVal = Nat.toFloat (Nat.mod seed 10000)
-        let threshold = (hashVal / 10000.0) * totalWeight
+        hashVal = Nat.toFloat (Nat.mod seed 10000)
+        threshold = (hashVal / 10000.0) * totalWeight
         selectByWeight entries threshold 0.0 bag
 
+-- Helper: sum weights from entries
+foldSum : Float -> [(Text, (a, Float))] -> Float
+foldSum acc entries = match entries with
+  [] -> acc
+  (_key, (_item, weight)) +: rest -> foldSum (acc + weight) rest
+
 -- Helper: walk through entries accumulating weight until we pass threshold
-selectByWeight : [(Text, (a, Float))] -> Float -> Float -> Bag a -> Optional (a, Bag a)
+selectByWeight : [(Text, (a, Float))] -> Float -> Float -> PriorityBag a -> Optional (a, PriorityBag a)
 selectByWeight entries threshold acc bag = match entries with
   [] -> None
   (key, (item, weight)) +: rest ->
-    let newAcc = acc + weight
+    newAcc = acc + weight
     if newAcc >= threshold then
-      let newItems = Map.delete key (Bag.items bag)
-      Some (item, Bag newItems (Bag.capacity bag))
+      newItems = Map.delete key (PriorityBag.items bag)
+      Some (item, PriorityBag newItems (PriorityBag.capacity bag))
     else selectByWeight rest threshold newAcc bag
 
 -- Legacy API: simple version without seed (still returns None — use selectWithSeed)
-Bag.probabilisticSelect : Bag a -> Optional a
-Bag.probabilisticSelect bag = None
+PriorityBag.probabilisticSelect : PriorityBag a -> Optional a
+PriorityBag.probabilisticSelect bag = None
 
 unique type Concept = {
   term : NarsTerm,
-  beliefs : Bag Sentence,
-  goals : Bag Sentence,
+  beliefs : PriorityBag Sentence,
+  goals : PriorityBag Sentence,
   questions : [Sentence],
   termLinks : [TermLink],
   taskLinks : [TaskLink],

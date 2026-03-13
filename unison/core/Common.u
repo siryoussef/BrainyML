@@ -1,3 +1,6 @@
+
+namespace core
+
 unique type Context
   = CommonSense
   | Agent Text
@@ -5,6 +8,16 @@ unique type Context
   | System
   | Session Text
   | Domain Text
+
+Context.equals : Context -> Context -> Boolean
+Context.equals c1 c2 = match (c1, c2) with
+  (CommonSense, CommonSense) -> true
+  (Agent a1, Agent a2) -> a1 == a2
+  (User u1, User u2) -> u1 == u2
+  (System, System) -> true
+  (Session s1, Session s2) -> s1 == s2
+  (Domain d1, Domain d2) -> d1 == d2
+  _ -> false
 
 unique type Provenance = {
   source : Text,

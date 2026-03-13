@@ -1,3 +1,5 @@
+namespace reasoning.axiomatic
+
 unique type Term
   = TVar Text
   | TConst Text

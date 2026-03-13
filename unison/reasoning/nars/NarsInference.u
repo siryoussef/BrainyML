@@ -1,6 +1,7 @@
-use reasoning.nars.Narsese NarsTerm NInheritance
-use reasoning.nars.TruthValue TruthValue
-use reasoning.nars.NarsConcept Sentence Stamp Punctuation Task Bag Concept
+namespace reasoning.nars
+
+use reasoning.nars NarsTerm
+use reasoning.nars TruthValue
 
 unique type NarsRule
   = Deduction
@@ -20,54 +21,92 @@ unique type NarsRule
   | Contraposition
   | CustomNarsRule Text (Sentence -> Sentence -> Optional Sentence)
 
+-- Helper: check if two SetType values are equal
+setTypeEquals : SetType -> SetType -> Boolean
+setTypeEquals s1 s2 = match (s1, s2) with
+  (ExtensionalSet, ExtensionalSet) -> true
+  (IntensionalSet, IntensionalSet) -> true
+  _ -> false
+
+-- Helper: check if two NarsTerm values are structurally equal
+narsTermEquals : NarsTerm -> NarsTerm -> Boolean
+narsTermEquals t1 t2 = match (t1, t2) with
+  (NAtom a1, NAtom a2) -> a1 == a2
+  (NInheritance s1 t1_, NInheritance s2 t2_) -> narsTermEquals s1 s2 && narsTermEquals t1_ t2_
+  (NSimilarity s1 t1_, NSimilarity s2 t2_) -> narsTermEquals s1 s2 && narsTermEquals t1_ t2_
+  (NImplication s1 t1_, NImplication s2 t2_) -> narsTermEquals s1 s2 && narsTermEquals t1_ t2_
+  (NEquivalence s1 t1_, NEquivalence s2 t2_) -> narsTermEquals s1 s2 && narsTermEquals t1_ t2_
+  (NConjunction l1, NConjunction l2) -> narsTermListEquals l1 l2
+  (NDisjunction l1, NDisjunction l2) -> narsTermListEquals l1 l2
+  (NNegation t1_, NNegation t2_) -> narsTermEquals t1_ t2_
+  (NSet s1 l1, NSet s2 l2) -> setTypeEquals s1 s2 && narsTermListEquals l1 l2
+  (NImage i1 t1_ l1 n1, NImage i2 t2_ l2 n2) -> imageTypeEquals i1 i2 && narsTermEquals t1_ t2_ && narsTermListEquals l1 l2 && n1 == n2
+  (NProduct l1, NProduct l2) -> narsTermListEquals l1 l2
+  (NTemporalImpl o1 t1_ t2_, NTemporalImpl o2 t3_ t4_) -> temporalOrderEquals o1 o2 && narsTermEquals t1_ t3_ && narsTermEquals t2_ t4_
+  _ -> false
+
+-- Helper: check if two ImageType values are equal
+imageTypeEquals : ImageType -> ImageType -> Boolean
+imageTypeEquals i1 i2 = match (i1, i2) with
+  (ExtImage, ExtImage) -> true
+  (IntImage, IntImage) -> true
+  _ -> false
+
+-- Helper: check if two TemporalOrder values are equal
+temporalOrderEquals : TemporalOrder -> TemporalOrder -> Boolean
+temporalOrderEquals o1 o2 = match (o1, o2) with
+  (Before, Before) -> true
+  (After, After) -> true
+  (Concurrent, Concurrent) -> true
+  _ -> false
+
+narsTermListEquals : [NarsTerm] -> [NarsTerm] -> Boolean
+narsTermListEquals l1 l2 = match (l1, l2) with
+  ([], []) -> true
+  (h1 +: t1_, h2 +: t2_) -> narsTermEquals h1 h2 && narsTermListEquals t1_ t2_
+  _ -> false
+
 -- FEATURE 5 (part 2): NarsRule.apply — Deduction and Revision implemented,
 -- others return None for now.
 NarsRule.apply : NarsRule -> Sentence -> Sentence -> Optional Sentence
 NarsRule.apply rule s1 s2 = match rule with
-  Deduction ->
-    -- A→B, B→C ⊢ A→C. Check if s1 and s2 form a deductive chain.
+  NarsRule.Deduction ->
     match (Sentence.term s1, Sentence.term s2) with
       (NInheritance a b, NInheritance b2 c) ->
-        -- Simple check: conclusion is A→C
-        let newTruth = deduction (Sentence.truth s1) (Sentence.truth s2)
-        let newStamp = Stamp
-              (Stamp.evidenceBase (Sentence.stamp s1) ++ Stamp.evidenceBase (Sentence.stamp s2))
-              (Stamp.creationTime (Sentence.stamp s1))
-              None
+        newTruth = deduction (Sentence.truth s1) (Sentence.truth s2)
+        evBase = Stamp.evidenceBase (Sentence.stamp s1) ++ Stamp.evidenceBase (Sentence.stamp s2)
+        createTime = Stamp.creationTime (Sentence.stamp s1)
+        newStamp = Stamp evBase createTime None
         Some (Sentence (NInheritance a c) newTruth newStamp Judgement)
       _ -> None
-  Revision ->
-    -- Merge two observations of the same term
-    if Sentence.term s1 == Sentence.term s2 then
-      let newTruth = revision (Sentence.truth s1) (Sentence.truth s2)
-      let newStamp = Stamp
-            (Stamp.evidenceBase (Sentence.stamp s1) ++ Stamp.evidenceBase (Sentence.stamp s2))
-            (Stamp.creationTime (Sentence.stamp s1))
-            None
+  NarsRule.Revision ->
+    if narsTermEquals (Sentence.term s1) (Sentence.term s2) then
+      newTruth = revision (Sentence.truth s1) (Sentence.truth s2)
+      evBase = Stamp.evidenceBase (Sentence.stamp s1) ++ Stamp.evidenceBase (Sentence.stamp s2)
+      createTime = Stamp.creationTime (Sentence.stamp s1)
+      newStamp = Stamp evBase createTime None
       Some (Sentence (Sentence.term s1) newTruth newStamp Judgement)
     else None
-  Abduction ->
+  NarsRule.Abduction ->
     match (Sentence.term s1, Sentence.term s2) with
       (NInheritance a b, NInheritance a2 c) ->
-        let newTruth = abduction (Sentence.truth s1) (Sentence.truth s2)
-        let newStamp = Stamp
-              (Stamp.evidenceBase (Sentence.stamp s1) ++ Stamp.evidenceBase (Sentence.stamp s2))
-              (Stamp.creationTime (Sentence.stamp s1))
-              None
+        newTruth = abduction (Sentence.truth s1) (Sentence.truth s2)
+        evBase = Stamp.evidenceBase (Sentence.stamp s1) ++ Stamp.evidenceBase (Sentence.stamp s2)
+        createTime = Stamp.creationTime (Sentence.stamp s1)
+        newStamp = Stamp evBase createTime None
         Some (Sentence (NInheritance c b) newTruth newStamp Judgement)
       _ -> None
-  Induction ->
+  NarsRule.Induction ->
     match (Sentence.term s1, Sentence.term s2) with
       (NInheritance a c, NInheritance b c2) ->
-        let newTruth = induction (Sentence.truth s1) (Sentence.truth s2)
-        let newStamp = Stamp
-              (Stamp.evidenceBase (Sentence.stamp s1) ++ Stamp.evidenceBase (Sentence.stamp s2))
-              (Stamp.creationTime (Sentence.stamp s1))
-              None
+        newTruth = induction (Sentence.truth s1) (Sentence.truth s2)
+        evBase = Stamp.evidenceBase (Sentence.stamp s1) ++ Stamp.evidenceBase (Sentence.stamp s2)
+        createTime = Stamp.creationTime (Sentence.stamp s1)
+        newStamp = Stamp evBase createTime None
         Some (Sentence (NInheritance a b) newTruth newStamp Judgement)
       _ -> None
-  CustomNarsRule _ fn -> fn s1 s2
-  _ -> None  -- Other rules remain stubs
+  NarsRule.CustomNarsRule _ fn -> fn s1 s2
+  _ -> None
 
 forwardInfer : NarsRule -> Sentence -> Sentence -> Optional Sentence
 forwardInfer rule s1 s2 = NarsRule.apply rule s1 s2
@@ -77,8 +116,8 @@ backwardInfer rule s1 s2 = NarsRule.apply rule s2 s1
 
 -- FEATURE 5 (part 3): NarsMemory with seed for deterministic inference
 unique type NarsMemory = {
-  concepts : Bag Concept,
-  inputBuffer : Bag Task,
+  concepts : PriorityBag Concept,
+  inputBuffer : PriorityBag Task,
   cycleCount : Nat,
   seed : Nat
 }
@@ -95,25 +134,25 @@ nextSeed s = Nat.mod (s * 6364136223846793005 + 1) (Nat.pow 2 64)
 -- 5. Increment cycleCount, advance seed
 NarsMemory.cycle : NarsMemory -> NarsMemory
 NarsMemory.cycle mem =
-  let s = NarsMemory.seed mem
-  match Bag.selectWithSeed s (NarsMemory.inputBuffer mem) with
+  s = NarsMemory.seed mem
+  match PriorityBag.selectWithSeed s (NarsMemory.inputBuffer mem) with
     None -> NarsMemory (NarsMemory.concepts mem) (NarsMemory.inputBuffer mem) (NarsMemory.cycleCount mem + 1) (nextSeed s)
     Some (task, newBuffer) ->
-      let taskTerm = Sentence.term (Task.sentence task)
+      taskTerm = Sentence.term (Task.sentence task)
       -- Try to find a concept matching this task's term
-      let s2 = nextSeed s
+      s2 = nextSeed s
       match findConceptByTerm taskTerm (NarsMemory.concepts mem) with
         None ->
           -- No matching concept; pass through
           NarsMemory (NarsMemory.concepts mem) newBuffer (NarsMemory.cycleCount mem + 1) (nextSeed s2)
         Some concept ->
           -- Select a belief from the concept
-          match Bag.selectWithSeed s2 (Concept.beliefs concept) with
+          match PriorityBag.selectWithSeed s2 (Concept.beliefs concept) with
             None ->
               NarsMemory (NarsMemory.concepts mem) newBuffer (NarsMemory.cycleCount mem + 1) (nextSeed s2)
             Some (belief, _) ->
               -- Try Deduction first, then Revision
-              let result = match NarsRule.apply Deduction (Task.sentence task) belief with
+              result = match NarsRule.apply Deduction (Task.sentence task) belief with
                     Some derived -> Some derived
                     None -> NarsRule.apply Revision (Task.sentence task) belief
               match result with
@@ -121,16 +160,20 @@ NarsMemory.cycle mem =
                   NarsMemory (NarsMemory.concepts mem) newBuffer (NarsMemory.cycleCount mem + 1) (nextSeed s2)
                 Some derived ->
                   -- Add derived sentence as a new task
-                  let newTask = Task derived (Task.priority task * 0.9) (Some task)
-                  let taskKey = "derived-" ++ Nat.toText (NarsMemory.cycleCount mem)
-                  let updatedBuffer = Bag (Map.insert taskKey (newTask, Task.priority task * 0.9) (Bag.items newBuffer)) (Bag.capacity newBuffer)
+                  newTask = Task derived (Task.priority task * 0.9) (Some task)
+                  taskKey = "derived-" ++ Nat.toText (NarsMemory.cycleCount mem)
+                  updatedBuffer = PriorityBag (Map.insert taskKey (newTask, Task.priority task * 0.9) (PriorityBag.items newBuffer)) (PriorityBag.capacity newBuffer)
                   NarsMemory (NarsMemory.concepts mem) updatedBuffer (NarsMemory.cycleCount mem + 1) (nextSeed s2)
 
 -- Helper: find a concept whose term matches the given term
-findConceptByTerm : NarsTerm -> Bag Concept -> Optional Concept
+findConceptByTerm : NarsTerm -> PriorityBag Concept -> Optional Concept
 findConceptByTerm term bag =
-  let entries = Map.values (Bag.items bag)
-  List.find (entry ->
-    let (concept, _) = entry
-    Concept.term concept == term
-  ) entries |> Optional.map (entry -> let (concept, _) = entry; concept)
+  entries = Map.values (PriorityBag.items bag)
+  found = List.find (conceptEntryMatches term) entries
+  match found with
+    Some (concept, _) -> Some concept
+    None -> None
+
+-- Helper: check if a concept entry matches the given term
+conceptEntryMatches : NarsTerm -> (Concept, Float) -> Boolean
+conceptEntryMatches term = cases (concept, _) -> narsTermEquals (Concept.term concept) term
