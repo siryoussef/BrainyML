@@ -1,7 +1,6 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    treesit.url = "github:SomeoneSerge/nix-treesitter";
     devenv.url = "github:cachix/devenv";
   };
 
