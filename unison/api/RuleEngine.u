@@ -1,0 +1,60 @@
+-- FEATURE 6: GUnisonHash — rule-as-atom execution bridge
+-- Inference rules stored as content-addressed Unison functions inside the AtomSpace,
+-- queryable and executable through the same API as facts.
+
+use core.Common Context Provenance
+use core.Atom Atom SymbolAtom GroundedAtom GroundedValue
+
+-- A rule is a named reference to a compiled Unison function stored by its hash
+unique type Rule = {
+  name : Text,
+  description : Text,
+  atomHash : Bytes,       -- the GUnisonHash value (SHA3 of a compiled Unison definition)
+  context : Context,
+  provenance : Provenance
+}
+
+-- RuleSet tracks active rules and maintains an audit trail of changes
+-- History entries: (timestamp, old rule, new rule) for rollback support
+unique type RuleSet = {
+  active : [Rule],
+  history : [(Nat, Rule, Rule)]
+}
+
+-- Create an empty RuleSet
+RuleSet.empty : RuleSet
+RuleSet.empty = RuleSet [] []
+
+-- promoteRule: Add a new rule to the active set.
+-- If a rule with the same name exists, replace it and log old→new in history.
+RuleSet.promoteRule : Rule -> Nat -> RuleSet -> RuleSet
+RuleSet.promoteRule newRule timestamp rs =
+  let existing = List.find (r -> Rule.name r == Rule.name newRule) (RuleSet.active rs)
+  match existing with
+    Some oldRule ->
+      let filtered = List.filter (r -> Rule.name r != Rule.name newRule) (RuleSet.active rs)
+      let newHistory = (timestamp, oldRule, newRule) +: RuleSet.history rs
+      RuleSet (newRule +: filtered) newHistory
+    None ->
+      -- No existing rule with this name; just add it
+      RuleSet (newRule +: RuleSet.active rs) (RuleSet.history rs)
+
+-- retireRule: Remove a rule from the active set by name
+RuleSet.retireRule : Text -> RuleSet -> RuleSet
+RuleSet.retireRule name rs =
+  let filtered = List.filter (r -> Rule.name r != name) (RuleSet.active rs)
+  RuleSet filtered (RuleSet.history rs)
+
+-- activeForContext: Get all active rules matching a given context
+RuleSet.activeForContext : Context -> RuleSet -> [Rule]
+RuleSet.activeForContext ctx rs =
+  List.filter (r -> Rule.context r == ctx) (RuleSet.active rs)
+
+-- findRule: Look up a rule by name
+RuleSet.findRule : Text -> RuleSet -> Optional Rule
+RuleSet.findRule name rs =
+  List.find (r -> Rule.name r == name) (RuleSet.active rs)
+
+-- Convert a Rule to an Atom (stored as GroundedAtom with GUnisonHash)
+Rule.toAtom : Rule -> Atom
+Rule.toAtom r = GroundedAtom (GUnisonHash (Rule.atomHash r))

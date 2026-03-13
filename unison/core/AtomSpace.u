@@ -1,4 +1,4 @@
-use core.Atom Atom
+use core.Atom Atom SymbolAtom VariableAtom ExpressionAtom GroundedAtom
 use core.Common Context Provenance
 
 unique type EdgeMeta = {
@@ -10,9 +10,9 @@ unique type EdgeMeta = {
 }
 
 unique type Edge = {
-  source : Text, -- using Text instead of Hash for simplicity before UCM integration
+  source : Text, -- Atom.id of source atom
   label : Atom,
-  target : Text,
+  target : Text, -- Atom.id of target atom
   metadata : EdgeMeta
 }
 
@@ -25,15 +25,74 @@ unique type AtomSpace = {
 AtomSpace.empty : AtomSpace
 AtomSpace.empty = AtomSpace Map.empty [] Map.empty
 
--- Placeholders for core operations
+-- FEATURE 2: AtomSpace operations
+
+-- Helper: add an ID to the index under a given key
+addToIndex : Text -> Text -> Map Text [Text] -> Map Text [Text]
+addToIndex key atomId idx =
+  match Map.get key idx with
+    Some ids -> Map.insert key (atomId +: ids) idx
+    None -> Map.insert key [atomId] idx
+
+-- addAtom: Insert atom into atoms map, update index
 AtomSpace.addAtom : Atom -> AtomSpace -> AtomSpace
-AtomSpace.addAtom a space = space
+AtomSpace.addAtom a space =
+  let id = Atom.id a
+  let newAtoms = Map.insert id a (AtomSpace.atoms space)
+  let newIndex = match a with
+        SymbolAtom t -> addToIndex t id (AtomSpace.index space)
+        ExpressionAtom children ->
+          List.foldLeft (ids -> child -> addToIndex (Atom.id child) id ids)
+            (AtomSpace.index space)
+            children
+        _ -> addToIndex id id (AtomSpace.index space)
+  AtomSpace newAtoms (AtomSpace.edges space) newIndex
 
+-- addEdge: Append edge, index under source and target keys
 AtomSpace.addEdge : Edge -> AtomSpace -> AtomSpace
-AtomSpace.addEdge e space = space
+AtomSpace.addEdge e space =
+  let newEdges = e +: AtomSpace.edges space
+  let idx1 = addToIndex (Edge.source e) (Edge.source e) (AtomSpace.index space)
+  let idx2 = addToIndex (Edge.target e) (Edge.target e) idx1
+  AtomSpace (AtomSpace.atoms space) newEdges idx2
 
+-- query: Find all atoms matching a pattern via Atom.match
 AtomSpace.query : Atom -> AtomSpace -> [Atom]
-AtomSpace.query pattern space = []
+AtomSpace.query pattern space =
+  let allAtoms = Map.values (AtomSpace.atoms space)
+  List.filter (atom -> match Atom.match pattern atom with
+    Some _ -> true
+    None -> false
+  ) allAtoms
 
+-- queryWithBindings: Find matching atoms AND return the variable bindings
+-- Callers need to know *how* a pattern matched, not just *what* matched
+AtomSpace.queryWithBindings : Atom -> AtomSpace -> [(Atom, [(Text, Atom)])]
+AtomSpace.queryWithBindings pattern space =
+  let allAtoms = Map.values (AtomSpace.atoms space)
+  List.filterMap (atom ->
+    match Atom.match pattern atom with
+      Some bindings -> Some (atom, bindings)
+      None -> None
+  ) allAtoms
+
+-- rewrite: Replace all matching atoms with a transformed version
 AtomSpace.rewrite : Atom -> Atom -> AtomSpace -> AtomSpace
-AtomSpace.rewrite fromPattern toPattern space = space
+AtomSpace.rewrite fromPattern toPattern space =
+  let matches = AtomSpace.queryWithBindings fromPattern space
+  List.foldLeft (s -> match_ ->
+    let (oldAtom, bindings) = match_
+    let newAtom = applyBindings bindings toPattern
+    AtomSpace.addAtom newAtom s
+  ) space matches
+
+-- Helper: substitute variable bindings into an atom
+applyBindings : [(Text, Atom)] -> Atom -> Atom
+applyBindings bindings atom = match atom with
+  VariableAtom v ->
+    match List.find (b -> let (name, _) = b; name == v) bindings with
+      Some (_, replacement) -> replacement
+      None -> atom
+  ExpressionAtom children ->
+    ExpressionAtom (List.map (applyBindings bindings) children)
+  _ -> atom

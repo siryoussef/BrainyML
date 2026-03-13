@@ -1,3 +1,6 @@
+use reasoning.nars.Narsese NarsTerm NInheritance
+use reasoning.nars.TruthValue TruthValue
+
 unique type Stamp = {
   evidenceBase : [Nat],
   creationTime : Nat,
@@ -43,7 +46,38 @@ unique type Bag a = {
   capacity : Nat
 }
 
--- Probabilistic selection from a Bag (placeholder)
+-- FEATURE 5 (part 1): Probabilistic selection from a Bag using a seed
+-- Selects an item with probability proportional to its priority weight.
+-- Returns the selected item and the bag with that item removed.
+Bag.selectWithSeed : Nat -> Bag a -> Optional (a, Bag a)
+Bag.selectWithSeed seed bag =
+  let entries = Map.toList (Bag.items bag)
+  match entries with
+    [] -> None
+    _ ->
+      let totalWeight = List.foldLeft (acc -> entry ->
+            let (_, (_, w)) = entry
+            acc + w
+          ) 0.0 entries
+      if totalWeight == 0.0 then None
+      else
+        -- Use seed to generate a threshold between 0 and totalWeight
+        let hashVal = Nat.toFloat (Nat.mod seed 10000)
+        let threshold = (hashVal / 10000.0) * totalWeight
+        selectByWeight entries threshold 0.0 bag
+
+-- Helper: walk through entries accumulating weight until we pass threshold
+selectByWeight : [(Text, (a, Float))] -> Float -> Float -> Bag a -> Optional (a, Bag a)
+selectByWeight entries threshold acc bag = match entries with
+  [] -> None
+  (key, (item, weight)) +: rest ->
+    let newAcc = acc + weight
+    if newAcc >= threshold then
+      let newItems = Map.delete key (Bag.items bag)
+      Some (item, Bag newItems (Bag.capacity bag))
+    else selectByWeight rest threshold newAcc bag
+
+-- Legacy API: simple version without seed (still returns None — use selectWithSeed)
 Bag.probabilisticSelect : Bag a -> Optional a
 Bag.probabilisticSelect bag = None
 

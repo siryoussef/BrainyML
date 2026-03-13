@@ -1,3 +1,7 @@
+use core.Common Context Provenance
+use core.Atom Atom SymbolAtom
+use kg.Entity KGSource
+
 unique type MemoryGroup
   = PrivateAgent Text
   | SharedUser

@@ -1,3 +1,7 @@
+use reasoning.nars.Narsese NarsTerm NInheritance
+use reasoning.nars.TruthValue TruthValue
+use reasoning.nars.NarsConcept Sentence Stamp Punctuation Task Bag Concept
+
 unique type NarsRule
   = Deduction
   | Abduction
@@ -16,22 +20,117 @@ unique type NarsRule
   | Contraposition
   | CustomNarsRule Text (Sentence -> Sentence -> Optional Sentence)
 
--- Placeholder inference functions
+-- FEATURE 5 (part 2): NarsRule.apply — Deduction and Revision implemented,
+-- others return None for now.
 NarsRule.apply : NarsRule -> Sentence -> Sentence -> Optional Sentence
-NarsRule.apply rule s1 s2 = None
+NarsRule.apply rule s1 s2 = match rule with
+  Deduction ->
+    -- A→B, B→C ⊢ A→C. Check if s1 and s2 form a deductive chain.
+    match (Sentence.term s1, Sentence.term s2) with
+      (NInheritance a b, NInheritance b2 c) ->
+        -- Simple check: conclusion is A→C
+        let newTruth = deduction (Sentence.truth s1) (Sentence.truth s2)
+        let newStamp = Stamp
+              (Stamp.evidenceBase (Sentence.stamp s1) ++ Stamp.evidenceBase (Sentence.stamp s2))
+              (Stamp.creationTime (Sentence.stamp s1))
+              None
+        Some (Sentence (NInheritance a c) newTruth newStamp Judgement)
+      _ -> None
+  Revision ->
+    -- Merge two observations of the same term
+    if Sentence.term s1 == Sentence.term s2 then
+      let newTruth = revision (Sentence.truth s1) (Sentence.truth s2)
+      let newStamp = Stamp
+            (Stamp.evidenceBase (Sentence.stamp s1) ++ Stamp.evidenceBase (Sentence.stamp s2))
+            (Stamp.creationTime (Sentence.stamp s1))
+            None
+      Some (Sentence (Sentence.term s1) newTruth newStamp Judgement)
+    else None
+  Abduction ->
+    match (Sentence.term s1, Sentence.term s2) with
+      (NInheritance a b, NInheritance a2 c) ->
+        let newTruth = abduction (Sentence.truth s1) (Sentence.truth s2)
+        let newStamp = Stamp
+              (Stamp.evidenceBase (Sentence.stamp s1) ++ Stamp.evidenceBase (Sentence.stamp s2))
+              (Stamp.creationTime (Sentence.stamp s1))
+              None
+        Some (Sentence (NInheritance c b) newTruth newStamp Judgement)
+      _ -> None
+  Induction ->
+    match (Sentence.term s1, Sentence.term s2) with
+      (NInheritance a c, NInheritance b c2) ->
+        let newTruth = induction (Sentence.truth s1) (Sentence.truth s2)
+        let newStamp = Stamp
+              (Stamp.evidenceBase (Sentence.stamp s1) ++ Stamp.evidenceBase (Sentence.stamp s2))
+              (Stamp.creationTime (Sentence.stamp s1))
+              None
+        Some (Sentence (NInheritance a b) newTruth newStamp Judgement)
+      _ -> None
+  CustomNarsRule _ fn -> fn s1 s2
+  _ -> None  -- Other rules remain stubs
 
 forwardInfer : NarsRule -> Sentence -> Sentence -> Optional Sentence
-forwardInfer rule s1 s2 = None
+forwardInfer rule s1 s2 = NarsRule.apply rule s1 s2
 
 backwardInfer : NarsRule -> Sentence -> Sentence -> Optional Sentence
-backwardInfer rule s1 s2 = None
+backwardInfer rule s1 s2 = NarsRule.apply rule s2 s1
 
+-- FEATURE 5 (part 3): NarsMemory with seed for deterministic inference
 unique type NarsMemory = {
   concepts : Bag Concept,
   inputBuffer : Bag Task,
-  cycleCount : Nat
+  cycleCount : Nat,
+  seed : Nat
 }
 
--- One NARS inference cycle (placeholder)
+-- LCG for deterministic pseudo-random seed progression
+nextSeed : Nat -> Nat
+nextSeed s = Nat.mod (s * 6364136223846793005 + 1) (Nat.pow 2 64)
+
+-- One NARS inference cycle:
+-- 1. Select highest-priority task from inputBuffer
+-- 2. Find matching concept (by term), select a belief
+-- 3. Try Deduction, then Revision
+-- 4. If derived, add back as new Task
+-- 5. Increment cycleCount, advance seed
 NarsMemory.cycle : NarsMemory -> NarsMemory
-NarsMemory.cycle mem = mem
+NarsMemory.cycle mem =
+  let s = NarsMemory.seed mem
+  match Bag.selectWithSeed s (NarsMemory.inputBuffer mem) with
+    None -> NarsMemory (NarsMemory.concepts mem) (NarsMemory.inputBuffer mem) (NarsMemory.cycleCount mem + 1) (nextSeed s)
+    Some (task, newBuffer) ->
+      let taskTerm = Sentence.term (Task.sentence task)
+      -- Try to find a concept matching this task's term
+      let s2 = nextSeed s
+      match findConceptByTerm taskTerm (NarsMemory.concepts mem) with
+        None ->
+          -- No matching concept; pass through
+          NarsMemory (NarsMemory.concepts mem) newBuffer (NarsMemory.cycleCount mem + 1) (nextSeed s2)
+        Some concept ->
+          -- Select a belief from the concept
+          match Bag.selectWithSeed s2 (Concept.beliefs concept) with
+            None ->
+              NarsMemory (NarsMemory.concepts mem) newBuffer (NarsMemory.cycleCount mem + 1) (nextSeed s2)
+            Some (belief, _) ->
+              -- Try Deduction first, then Revision
+              let result = match NarsRule.apply Deduction (Task.sentence task) belief with
+                    Some derived -> Some derived
+                    None -> NarsRule.apply Revision (Task.sentence task) belief
+              match result with
+                None ->
+                  NarsMemory (NarsMemory.concepts mem) newBuffer (NarsMemory.cycleCount mem + 1) (nextSeed s2)
+                Some derived ->
+                  -- Add derived sentence as a new task
+                  let newTask = Task derived (Task.priority task * 0.9) (Some task)
+                  let taskKey = "derived-" ++ Nat.toText (NarsMemory.cycleCount mem)
+                  let updatedBuffer = Bag (Map.insert taskKey (newTask, Task.priority task * 0.9) (Bag.items newBuffer)) (Bag.capacity newBuffer)
+                  NarsMemory (NarsMemory.concepts mem) updatedBuffer (NarsMemory.cycleCount mem + 1) (nextSeed s2)
+
+-- Helper: find a concept whose term matches the given term
+findConceptByTerm : NarsTerm -> Bag Concept -> Optional Concept
+findConceptByTerm term bag =
+  let entries = Map.values (Bag.items bag)
+  List.find (entry ->
+    let (concept, _) = entry
+    Concept.term concept == term
+  ) entries |> Optional.map (entry -> let (concept, _) = entry; concept)

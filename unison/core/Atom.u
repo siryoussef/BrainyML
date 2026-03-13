@@ -17,12 +17,67 @@ unique type Atom
   | IntAtom Int
   | BoolAtom Boolean
 
--- Helper to extract ID (just a placeholder for now until hash logic is implemented)
+-- Extract a text ID for an Atom (used as Map key in AtomSpace)
 Atom.id : Atom -> Text
 Atom.id = cases
   SymbolAtom t -> t
   VariableAtom t -> "?" ++ t
-  _ -> "hash_placeholder"
+  ExpressionAtom children ->
+    "(" ++ Text.join " " (List.map Atom.id children) ++ ")"
+  GroundedAtom (GText t) -> "g:" ++ t
+  GroundedAtom (GFloat f) -> "g:" ++ Float.toText f
+  GroundedAtom (GInt i) -> "g:" ++ Int.toText i
+  GroundedAtom (GBool b) -> if b then "g:true" else "g:false"
+  GroundedAtom _ -> "g:blob"
+  FloatAtom f -> Float.toText f
+  IntAtom i -> Int.toText i
+  BoolAtom b -> if b then "true" else "false"
+
+-- FEATURE 1: Structural unification / pattern matching
+-- Given two atoms (where one may contain VariableAtom wildcards),
+-- returns variable bindings that make them equal, or None if they cannot unify.
+--
+-- Examples:
+--   match (VariableAtom "x") (SymbolAtom "Dog") → Some [("x", SymbolAtom "Dog")]
+--   match (SymbolAtom "Dog") (SymbolAtom "Dog") → Some []
+--   match (SymbolAtom "Dog") (SymbolAtom "Cat") → None
+--   match (ExpressionAtom [VariableAtom "x", SymbolAtom "isa"])
+--         (ExpressionAtom [SymbolAtom "Dog", SymbolAtom "isa"])
+--     → Some [("x", SymbolAtom "Dog")]
 
 Atom.match : Atom -> Atom -> Optional [(Text, Atom)]
-Atom.match a1 a2 = None -- Placeholder implementation
+Atom.match pattern target = match (pattern, target) with
+  -- A variable matches anything and produces a binding
+  (VariableAtom v, _) -> Some [(v, target)]
+  -- A target variable also matches (symmetric case)
+  (_, VariableAtom v) -> Some [(v, pattern)]
+  -- Two symbols must be equal
+  (SymbolAtom a, SymbolAtom b) ->
+    if a == b then Some [] else None
+  -- Two expressions: recursively match element-by-element
+  (ExpressionAtom ps, ExpressionAtom ts) ->
+    if List.size ps != List.size ts then None
+    else matchList ps ts
+  -- Grounded atoms: equality by ID
+  (GroundedAtom g1, GroundedAtom g2) ->
+    if Atom.id (GroundedAtom g1) == Atom.id (GroundedAtom g2) then Some []
+    else None
+  -- Numeric/Bool literals: exact match
+  (FloatAtom a, FloatAtom b) -> if a == b then Some [] else None
+  (IntAtom a, IntAtom b) -> if a == b then Some [] else None
+  (BoolAtom a, BoolAtom b) -> if a == b then Some [] else None
+  -- Mismatched types
+  _ -> None
+
+-- Helper: match two lists of atoms, collecting all bindings
+matchList : [Atom] -> [Atom] -> Optional [(Text, Atom)]
+matchList ps ts = match (ps, ts) with
+  ([], []) -> Some []
+  (p +: restP, t +: restT) ->
+    match Atom.match p t with
+      None -> None
+      Some bindings ->
+        match matchList restP restT with
+          None -> None
+          Some restBindings -> Some (bindings ++ restBindings)
+  _ -> None

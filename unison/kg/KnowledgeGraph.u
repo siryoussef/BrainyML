@@ -1,7 +1,10 @@
-use core.AtomSpace AtomSpace
+use core.AtomSpace AtomSpace Edge EdgeMeta
+use core.Atom Atom SymbolAtom ExpressionAtom VariableAtom
+use core.Common Context Provenance
 use kg.Entity Entity
 use kg.Relation Relation
 use kg.Fact Fact
+use reasoning.nars.TruthValue TruthValue
 
 unique type KnowledgeGraph = {
   space : AtomSpace,
@@ -10,20 +13,101 @@ unique type KnowledgeGraph = {
   facts : [Fact]
 }
 
+-- FEATURE 4: KnowledgeGraph operations
+
 KnowledgeGraph.findEntity : Text -> KnowledgeGraph -> Optional Entity
 KnowledgeGraph.findEntity id kg = Map.get id (KnowledgeGraph.entities kg)
 
-KnowledgeGraph.findFacts : Entity -> KnowledgeGraph -> [Fact]
-KnowledgeGraph.findFacts e kg = [] -- Placeholder
-
+-- addFact: Convert fact to Atom, add to AtomSpace with Edge, prepend to facts list
 KnowledgeGraph.addFact : Fact -> KnowledgeGraph -> KnowledgeGraph
-KnowledgeGraph.addFact f kg = kg -- Placeholder
+KnowledgeGraph.addFact f kg =
+  let factAtom = Fact.toAtom f
+  let subjId = Atom.id (Entity.toAtom (Fact.subject f))
+  let objId = Atom.id (Entity.toAtom (Fact.object f))
+  let relAtom = Relation.toAtom (Fact.relation f)
+  -- Add the fact atom to the AtomSpace
+  let s1 = AtomSpace.addAtom factAtom (KnowledgeGraph.space kg)
+  -- Add subject and object atoms too
+  let s2 = AtomSpace.addAtom (Entity.toAtom (Fact.subject f)) s1
+  let s3 = AtomSpace.addAtom (Entity.toAtom (Fact.object f)) s2
+  -- Add an edge from subject to object labeled with the relation
+  let meta = EdgeMeta
+        (TruthValue.confidence (Fact.truthValue f))
+        (match Fact.source f with
+          _ -> "kg")
+        0
+        1.0
+        (Fact.context f)
+  let edge = Edge subjId relAtom objId meta
+  let s4 = AtomSpace.addEdge edge s3
+  -- Update entities map
+  let newEntities = Map.insert (Entity.id (Fact.subject f)) (Fact.subject f)
+        (Map.insert (Entity.id (Fact.object f)) (Fact.object f) (KnowledgeGraph.entities kg))
+  -- Update relations map  
+  let newRelations = Map.insert (Relation.id (Fact.relation f)) (Fact.relation f) (KnowledgeGraph.relations kg)
+  KnowledgeGraph s4 newEntities newRelations (f +: KnowledgeGraph.facts kg)
 
+-- findFacts: Filter facts by subject entity
+KnowledgeGraph.findFacts : Entity -> KnowledgeGraph -> [Fact]
+KnowledgeGraph.findFacts e kg =
+  let targetId = Entity.id e
+  List.filter (f -> Entity.id (Fact.subject f) == targetId) (KnowledgeGraph.facts kg)
+
+-- relatedEntities: Find all entities connected to a given entity via edges
 KnowledgeGraph.relatedEntities : Entity -> KnowledgeGraph -> [Entity]
-KnowledgeGraph.relatedEntities e kg = [] -- Placeholder
+KnowledgeGraph.relatedEntities e kg =
+  let sourceId = Atom.id (Entity.toAtom e)
+  let targetIds = List.filterMap (edge ->
+    if Edge.source edge == sourceId then Some (Edge.target edge)
+    else if Edge.target edge == sourceId then Some (Edge.source edge)
+    else None
+  ) (AtomSpace.edges (KnowledgeGraph.space kg))
+  List.filterMap (id -> Map.get id (KnowledgeGraph.entities kg)) targetIds
 
+-- graphStats: Return counts of entities, facts, atoms, edges
 KnowledgeGraph.graphStats : KnowledgeGraph -> Map Text Nat
-KnowledgeGraph.graphStats kg = Map.empty -- Placeholder
+KnowledgeGraph.graphStats kg =
+  let entityCount = Map.size (KnowledgeGraph.entities kg)
+  let factCount = List.size (KnowledgeGraph.facts kg)
+  let atomCount = Map.size (AtomSpace.atoms (KnowledgeGraph.space kg))
+  let edgeCount = List.size (AtomSpace.edges (KnowledgeGraph.space kg))
+  Map.fromList [("entities", entityCount), ("facts", factCount), ("atoms", atomCount), ("edges", edgeCount)]
 
+-- traversePath: BFS to find paths between two entities up to maxDepth
 KnowledgeGraph.traversePath : Entity -> Entity -> Nat -> KnowledgeGraph -> [[Entity]]
-KnowledgeGraph.traversePath src dst maxDepth kg = [] -- Placeholder
+KnowledgeGraph.traversePath src dst maxDepth kg =
+  let srcId = Entity.id src
+  let dstId = Entity.id dst
+  bfs [(srcId, [src])] [] dstId maxDepth 0 kg
+
+-- BFS helper: queue of (currentId, path), visited set, target, maxDepth
+bfs : [(Text, [Entity])] -> [Text] -> Text -> Nat -> Nat -> KnowledgeGraph -> [[Entity]]
+bfs queue visited targetId maxDepth depth kg = match queue with
+  [] -> []
+  _ ->
+    if depth >= maxDepth then []
+    else
+      -- Check if any current node is the target
+      let found = List.filterMap (entry ->
+            let (id, path) = entry
+            if id == targetId then Some path else None
+          ) queue
+      if List.size found > 0 then found
+      else
+        -- Expand all current nodes
+        let newVisited = List.map (entry -> let (id, _) = entry; id) queue ++ visited
+        let nextQueue = List.flatMap (entry ->
+              let (currentId, path) = entry
+              let neighbors = List.filterMap (edge ->
+                    let nextId = if Edge.source edge == currentId then Edge.target edge
+                                 else if Edge.target edge == currentId then Edge.source edge
+                                 else ""
+                    if nextId == "" then None
+                    else if List.any (v -> v == nextId) newVisited then None
+                    else match Map.get nextId (KnowledgeGraph.entities kg) with
+                      Some entity -> Some (nextId, path ++ [entity])
+                      None -> None
+                  ) (AtomSpace.edges (KnowledgeGraph.space kg))
+              neighbors
+            ) queue
+        bfs nextQueue newVisited targetId maxDepth (depth + 1) kg

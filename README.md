@@ -30,33 +30,36 @@ Design the simplified API that LLM/OpenClaw will use to access all knowledge and
 - [x] Document ADT constraints (context, provenance, toAtom) that Step 2 must follow
 - **AI Instruction**: This step is PLANNING ONLY — it shapes Step 2 before any Unison code is written.
 
-### Phase 2: Unison Type System (ADTs)
-Design the Unison ADTs spanning 5 layers (see `docs/architecture.md` and `docs/steps/step2-unison-types.md`).
-**All types must satisfy the API constraints from Phase 1.5** (context field, provenance, toAtom conversion).
-- [x] Core Atomspace (MeTTa-style Atom, AtomSpace metagraph)
-- [x] KG types (Entity, Relation, Fact, KnowledgeGraph)
-- [x] Axiomatic reasoning (Proposition, Axiom, Theorem, Proof, InferenceRule)
-- [x] NARS ADTs (NarsTerm, TruthValue, Concept, Task, Bag, NarsMemory)
-- [x] Unified Memory types bridging Graphiti & SQLite (MemoryItem, MemoryFact, GraphNode, GraphEdge, MemoryGroup, Layers)
-- [x] API module (`unison/api/`) implementing the 7 core operations over the ADTs
-- **AI Instruction**: Check types compilation with `ucm transcript`. Every type must include `context` and `provenance`.
+### Phase 2: Unison Type System (ADTs) ✅
+All 18 Unison files defined across 5 layers. Types complete, **all implementations are stubs**. See `docs/steps/step2-unison-types.md`.
+- [x] Core Atomspace (`Atom.u`, `AtomSpace.u`, `Common.u`)
+- [x] KG types (`Entity.u`, `Relation.u`, `Fact.u`, `KnowledgeGraph.u`)
+- [x] Axiomatic reasoning (`Logic.u`, `Axiom.u`)
+- [x] NARS ADTs (`Narsese.u`, `TruthValue.u`, `NarsConcept.u`, `NarsInference.u`)
+- [x] Unified Memory (`MemoryItem.u`, `MemoryFact.u`, `MemoryGraph.u`, `UnifiedMemory.u`)
+- [x] API (`Operations.u` — 7 operations defined)
+
+### Phase 2.5: Harden Types & Implement Core Functions ✅
+5 bugs fixed, 10 features implemented. See `docs/steps/step2.5-implementations.md`.
+- [x] **Sub-phase A** — Bug fixes (TruthValuePlaceholder dup, missing imports ×3, bad ID gen)
+- [x] **Sub-phase B** — Core: Atom.match, AtomSpace ops, TruthValue formulas, KG ops, NARS cycle
+- [x] **Sub-phase C** — Memory: RuleEngine, UnifiedMemory wiring, Operations completion, EpisodicMemory, RuleSet self-modification
+- **New files:** `RuleEngine.u`, `EpisodicMemory.u` (20 total Unison files)
 
 ### Phase 3: Python KG Parsers
 - [ ] `parse_nell.py`: NELL → Unison parser (TSV beliefs/ontology → Entity/Fact)
 - [ ] `parse_cskg.py`: CSKG → Unison parser (KGTK edges → Fact)
 - [ ] CLI entry point (`scripts/parse_kg.py`)
-- **AI Instruction**: Ensure parsers handle the massive TSV files efficiently (e.g., using pandas in chunks or streaming).
+- **AI Instruction**: Ensure parsers handle the massive TSV files efficiently.
 
 ### Phase 4: OpenClaw Integration
 - [ ] Define `SKILL.md` + `_agents/AGENTS.md`.
 - [ ] Create `shared-files/` and `skill/` directories.
 - [ ] Wire KG query API as OpenClaw memory backend.
-- **AI Instruction**: This makes the knowledge graph accessible to the overarching agent architecture.
 
 ### Phase 5: Later Phases (Deferred)
-- [ ] A Unison API wrapper for AI to dynamically edit facts and rules.
 - [ ] NLP layer (small LLM for NLU/NLG).
-- [ ] Inference rules engine full implementation.
+- [ ] Full inference engine (NAL 1–6, temporal inference).
 - [ ] Logic verification & proof checking (Lean4 bridge or native Unison solutions).
 
 ## Tooling

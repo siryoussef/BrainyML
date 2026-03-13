@@ -1,3 +1,6 @@
+use core.Common Context Provenance
+use core.Atom Atom SymbolAtom ExpressionAtom GroundedAtom GroundedValue
+
 unique type ExtractionMethod
   = SimpleExtraction
   | NarsInferred
